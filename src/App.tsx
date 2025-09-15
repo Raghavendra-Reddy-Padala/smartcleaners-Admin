@@ -8,6 +8,12 @@ import { LoginForm } from "@/components/login/LoginForm";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Dashboard } from "@/pages/Dashboard";
 import { Categories } from "@/pages/Categories";
+import { Products } from "@/pages/Products";
+import { Orders } from "@/pages/Orders";
+import { BulkOrders } from "@/pages/BulkOrders";
+import { ComboOrders } from "@/pages/ComboOrders";
+import { Analytics } from "@/pages/Analytics";
+import { Settings } from "@/pages/Settings";
 import { FullPageLoading } from "@/components/ui/loading";
 import NotFound from "./pages/NotFound";
 
@@ -30,12 +36,12 @@ const AppContent = () => {
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="categories" element={<Categories />} />
-          <Route path="products" element={<div>Products Page (Coming Soon)</div>} />
-          <Route path="orders" element={<div>Orders Page (Coming Soon)</div>} />
-          <Route path="bulk-orders" element={<div>Bulk Orders Page (Coming Soon)</div>} />
-          <Route path="combo-orders" element={<div>Combo Orders Page (Coming Soon)</div>} />
-          <Route path="analytics" element={<div>Analytics Page (Coming Soon)</div>} />
-          <Route path="settings" element={<div>Settings Page (Coming Soon)</div>} />
+          <Route path="products" element={<Products />} />
+          <Route path="orders" element={<Orders />} />
+          <Route path="bulk-orders" element={<BulkOrders />} />
+          <Route path="combo-orders" element={<ComboOrders />} />
+          <Route path="analytics" element={<Analytics />} />
+          <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>

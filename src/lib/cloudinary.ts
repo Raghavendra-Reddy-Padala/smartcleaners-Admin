@@ -9,7 +9,7 @@ export const uploadImageToCloudinary = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', cloudinaryConfig.uploadPreset);
-  formData.append('cloud_name', cloudinaryConfig.cloudName);
+  formData.append('folder', 'smart_cleaners');
 
   try {
     const response = await fetch(
