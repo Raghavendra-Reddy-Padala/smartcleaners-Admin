@@ -8,8 +8,7 @@ export const cloudinaryConfig = {
 export const uploadImageToCloudinary = async (file: File): Promise<string> => {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('upload_preset', cloudinaryConfig.uploadPreset);
-  formData.append('folder', 'smart_cleaners');
+  formData.append('upload_preset', 'pdf_ocr_preset'); // Use your existing unsigned preset
 
   try {
     const response = await fetch(
@@ -21,7 +20,9 @@ export const uploadImageToCloudinary = async (file: File): Promise<string> => {
     );
 
     if (!response.ok) {
-      throw new Error('Failed to upload image');
+      const errorData = await response.text();
+      console.error('Cloudinary error response:', errorData);
+      throw new Error(`Failed to upload image: ${response.status}`);
     }
 
     const data = await response.json();
