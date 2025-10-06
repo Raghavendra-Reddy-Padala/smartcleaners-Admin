@@ -41,6 +41,7 @@ interface Product {
   dimensions?: string;
   ingredients?: string;
   instructions?: string;
+  serialNo: number | null;
   createdAt: any;
 }
 
@@ -68,7 +69,8 @@ export const Products: React.FC = () => {
     dimensions: '',
     ingredients: '',
     instructions: '',
-    isActive: true
+    isActive: true,
+    serialNo: null as number | null
   });
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -95,7 +97,18 @@ export const Products: React.FC = () => {
         categoryName: categoriesMap.get(product.categoryId) || 'Unknown'
       }));
       
-      setProducts(productsWithCategories);
+      // Sort: items with serialNo first (sorted by serialNo), then items without serialNo (sorted by createdAt)
+      const sorted = productsWithCategories.sort((a, b) => {
+  const aSerial = a.serialNo ?? Infinity; // null treated as Infinity
+  const bSerial = b.serialNo ?? Infinity;
+  if (aSerial !== bSerial) return aSerial - bSerial;
+
+  // If both have null or same serialNo, fallback to latest createdAt
+  return (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0);
+});
+
+      
+      setProducts(sorted);
       setLoading(false);
     });
 
@@ -157,15 +170,26 @@ export const Products: React.FC = () => {
         price: Number(formData.price),
         salePrice: formData.salePrice ? Number(formData.salePrice) : null,
         stock: Number(formData.stock),
+        serialNo: formData.serialNo !== null && formData.serialNo !== 0 ? Number(formData.serialNo) : null,
         createdAt: new Date()
       };
 
       if (editingProduct) {
         await updateDoc(doc(db, 'products', editingProduct.id), {
-          ...formData,
+          name: formData.name,
+          description: formData.description,
+          categoryId: formData.categoryId,
+          images: formData.images,
           price: Number(formData.price),
           salePrice: formData.salePrice ? Number(formData.salePrice) : null,
           stock: Number(formData.stock),
+          sku: formData.sku,
+          weight: formData.weight,
+          dimensions: formData.dimensions,
+          ingredients: formData.ingredients,
+          instructions: formData.instructions,
+          isActive: formData.isActive,
+          serialNo: formData.serialNo !== null && formData.serialNo !== 0 ? Number(formData.serialNo) : null,
           updatedAt: new Date()
         });
         toast({
@@ -208,7 +232,8 @@ export const Products: React.FC = () => {
       dimensions: product.dimensions || '',
       ingredients: product.ingredients || '',
       instructions: product.instructions || '',
-      isActive: product.isActive
+      isActive: product.isActive,
+      serialNo: product.serialNo
     });
     setIsDialogOpen(true);
   };
@@ -245,7 +270,8 @@ export const Products: React.FC = () => {
       dimensions: '',
       ingredients: '',
       instructions: '',
-      isActive: true
+      isActive: true,
+      serialNo: null
     });
     setEditingProduct(null);
   };
@@ -307,20 +333,35 @@ export const Products: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select value={formData.categoryId} onValueChange={(value) => setFormData(prev => ({ ...prev, categoryId: value }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Select value={formData.categoryId} onValueChange={(value) => setFormData(prev => ({ ...prev, categoryId: value }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="serialNo">Serial Number</Label>
+                  <Input
+                    id="serialNo"
+                    type="number"
+                    value={formData.serialNo === null ? '' : formData.serialNo}
+                    onChange={(e) => setFormData(prev => ({ 
+                      ...prev, 
+                      serialNo: e.target.value === '' ? null : Number(e.target.value)
+                    }))}
+                    placeholder="e.g., 1, 2, 3..."
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -496,7 +537,14 @@ export const Products: React.FC = () => {
           <Card key={product.id} className="overflow-hidden">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">{product.name}</CardTitle>
+                <div className="flex items-center gap-2">
+                  {product.serialNo !== null && (
+                    <Badge variant="outline" className="text-xs">
+                      #{product.serialNo}
+                    </Badge>
+                  )}
+                  <CardTitle className="text-lg">{product.name}</CardTitle>
+                </div>
                 <Badge variant={product.isActive ? "default" : "secondary"}>
                   {product.isActive ? 'Active' : 'Inactive'}
                 </Badge>
