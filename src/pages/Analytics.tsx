@@ -1,280 +1,173 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, Users, Package, ShoppingCart, DollarSign, Calendar } from 'lucide-react';
+import { Package, Clock, User, Phone, MapPin, AlertCircle, CheckCircle2, Beaker } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { 
   collection, 
-  getDocs, 
   query,
   where,
-  orderBy
+  orderBy,
+  onSnapshot,
+  doc,
+  updateDoc
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loading } from '@/components/ui/loading';
 
-interface AnalyticsData {
-  totalRevenue: number;
-  totalOrders: number;
-  totalProducts: number;
-  totalCustomers: number;
-  revenueGrowth: number;
-  ordersGrowth: number;
-  avgOrderValue: number;
-  topProducts: Array<{
+interface OrderItem {
+  productId: string;
+  quantity: number;
+  unitPrice: number;
+  finalUnitPrice: number;
+  lineTotal: number;
+  productDetails: {
     name: string;
-    sales: number;
-    revenue: number;
-  }>;
-  topCategories: Array<{
+    description: string;
+    dimensions: string;
+    images: string[];
+    ingredients: string;
+    instructions: string;
+    sku: string;
+    weight: string;
+  };
+}
+
+interface Order {
+  id: string;
+  orderId: string;
+  customer: {
     name: string;
-    sales: number;
-    revenue: number;
-  }>;
-  salesTrend: Array<{
-    date: string;
-    revenue: number;
-    orders: number;
-  }>;
-  recentOrders: Array<{
-    id: string;
-    orderNumber: string;
-    customerName: string;
-    amount: number;
-    status: string;
-    date: string;
-  }>;
+    phone: string;
+    address: {
+      fullAddress: string;
+    };
+  };
+  items: OrderItem[];
+  status: string;
+  flags?: {
+    isNewCustomer: boolean;
+    priority: string;
+  };
+  createdAt: any;
+}
+
+interface ProductSummary {
+  productId: string;
+  name: string;
+  sku: string;
+  totalQuantity: number;
+  image: string;
+  weight: string;
 }
 
 export const Analytics: React.FC = () => {
-  const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState('30days');
+  const [dateFilter, setDateFilter] = useState('today');
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchAnalyticsData();
-  }, [timeRange]);
+    const q = query(
+      collection(db, 'orders'),
+      where('status', 'in', ['pending', 'confirmed']),
+      orderBy('createdAt', 'asc')
+    );
 
-  const fetchAnalyticsData = async () => {
-    try {
-      setLoading(true);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ordersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Order[];
       
-      // Calculate date range
-      const endDate = new Date();
-      const startDate = new Date();
-      switch (timeRange) {
-        case '7days':
-          startDate.setDate(endDate.getDate() - 7);
-          break;
-        case '30days':
-          startDate.setDate(endDate.getDate() - 30);
-          break;
-        case '90days':
-          startDate.setDate(endDate.getDate() - 90);
-          break;
-        case '1year':
-          startDate.setFullYear(endDate.getFullYear() - 1);
-          break;
-        default:
-          startDate.setDate(endDate.getDate() - 30);
-      }
+      setOrders(ordersData);
+      setLoading(false);
+    });
 
-      // Fetch orders
-      const ordersQuery = query(
-        collection(db, 'orders'),
-        where('createdAt', '>=', startDate),
-        where('createdAt', '<=', endDate),
-        orderBy('createdAt', 'desc')
-      );
-      const ordersSnapshot = await getDocs(ordersQuery);
-      const orders = ordersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as any[];
+    return () => unsubscribe();
+  }, []);
 
-      // Fetch products
-      const productsSnapshot = await getDocs(collection(db, 'products'));
-      const products = productsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Fetch categories
-      const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-      const categories = categoriesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-
-      // Calculate analytics
-      const totalRevenue = orders
-        .filter(order => order.paymentStatus === 'paid')
-        .reduce((sum, order) => sum + order.totalAmount, 0);
-
-      const totalOrders = orders.length;
-      const totalProducts = products.length;
-      const uniqueCustomers = new Set(orders.map(order => order.customerId)).size;
-      const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-
-      // Calculate growth (comparing with previous period)
-      const previousPeriodStart = new Date(startDate);
-      const previousPeriodEnd = new Date(startDate);
-      const daysDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-      previousPeriodStart.setDate(previousPeriodStart.getDate() - daysDiff);
-
-      const previousOrdersQuery = query(
-        collection(db, 'orders'),
-        where('createdAt', '>=', previousPeriodStart),
-        where('createdAt', '<', startDate)
-      );
-      const previousOrdersSnapshot = await getDocs(previousOrdersQuery);
-      const previousOrders = previousOrdersSnapshot.docs.map(doc => doc.data()) as any[];
-
-      const previousRevenue = previousOrders
-        .filter(order => order.paymentStatus === 'paid')
-        .reduce((sum, order) => sum + order.totalAmount, 0);
-      const previousOrderCount = previousOrders.length;
-
-      const revenueGrowth = previousRevenue > 0 ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 : 0;
-      const ordersGrowth = previousOrderCount > 0 ? ((totalOrders - previousOrderCount) / previousOrderCount) * 100 : 0;
-
-      // Top products analysis
-      const productSales = new Map();
-      orders.forEach(order => {
-        order.items?.forEach(item => {
-          const current = productSales.get(item.productId) || { name: item.productName, sales: 0, revenue: 0 };
-          current.sales += item.quantity;
-          current.revenue += item.quantity * item.price;
-          productSales.set(item.productId, current);
-        });
+  const markAsProcessing = async (orderId: string) => {
+    try {
+      await updateDoc(doc(db, 'orders', orderId), {
+        status: 'processing',
+        updatedAt: new Date()
       });
-
-      const topProducts = Array.from(productSales.values())
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
-
-      // Top categories analysis
-      const categorySales = new Map();
-      orders.forEach(order => {
-        order.items?.forEach(item => {
-          const product = products.find(p => p.id === item.productId);
-          if (product) {
-            const category = categories.find(c => c.id === product.categoryId);
-            if (category) {
-              const current = categorySales.get(category.id) || { name: category.name, sales: 0, revenue: 0 };
-              current.sales += item.quantity;
-              current.revenue += item.quantity * item.price;
-              categorySales.set(category.id, current);
-            }
-          }
-        });
+      toast({
+        title: "Order Updated",
+        description: "Order marked as processing",
       });
-
-      const topCategories = Array.from(categorySales.values())
-        .sort((a, b) => b.revenue - a.revenue)
-        .slice(0, 5);
-
-      // Sales trend (daily data for the period)
-      const salesTrendMap = new Map();
-      orders.forEach(order => {
-        if (order.paymentStatus === 'paid' && order.createdAt?.toDate) {
-          const date = order.createdAt.toDate().toISOString().split('T')[0];
-          const current = salesTrendMap.get(date) || { date, revenue: 0, orders: 0 };
-          current.revenue += order.totalAmount;
-          current.orders += 1;
-          salesTrendMap.set(date, current);
-        }
-      });
-
-      const salesTrend = Array.from(salesTrendMap.values())
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-        .slice(-30); // Last 30 data points
-
-      // Recent orders
-      const recentOrders = orders
-        .slice(0, 10)
-        .map(order => ({
-          id: order.id,
-          orderNumber: order.orderNumber || `ORD-${order.id.slice(-6)}`,
-          customerName: order.customerName,
-          amount: order.totalAmount,
-          status: order.status,
-          date: order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'N/A'
-        }));
-
-      setAnalyticsData({
-        totalRevenue,
-        totalOrders,
-        totalProducts,
-        totalCustomers: uniqueCustomers,
-        revenueGrowth,
-        ordersGrowth,
-        avgOrderValue,
-        topProducts,
-        topCategories,
-        salesTrend,
-        recentOrders
-      });
-
     } catch (error) {
-      console.error('Error fetching analytics:', error);
       toast({
         title: "Error",
-        description: "Failed to load analytics data",
+        description: "Failed to update order",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'delivered': return 'bg-green-100 text-green-800';
-      case 'shipped': return 'bg-blue-100 text-blue-800';
-      case 'processing': return 'bg-yellow-100 text-yellow-800';
-      case 'pending': return 'bg-orange-100 text-orange-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const getFilteredOrders = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    return orders.filter(order => {
+      if (!order.createdAt?.toDate) return true;
+      const orderDate = order.createdAt.toDate();
+      
+      switch (dateFilter) {
+        case 'today':
+          return orderDate >= today;
+        case 'week':
+          return orderDate >= weekAgo;
+        case 'all':
+        default:
+          return true;
+      }
+    });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
+  const filteredOrders = getFilteredOrders();
 
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
+  // Calculate product summary
+  const productSummary: ProductSummary[] = [];
+  const productMap = new Map();
+
+  filteredOrders.forEach(order => {
+    order.items?.forEach(item => {
+      const existing = productMap.get(item.productId);
+      if (existing) {
+        existing.totalQuantity += item.quantity;
+      } else {
+        productMap.set(item.productId, {
+          productId: item.productId,
+          name: item.productDetails.name,
+          sku: item.productDetails.sku,
+          totalQuantity: item.quantity,
+          image: item.productDetails.images?.[0] || '',
+          weight: item.productDetails.weight
+        });
+      }
+    });
+  });
+
+  productMap.forEach(value => productSummary.push(value));
+
+  const totalItemsToday = filteredOrders.reduce((sum, order) => 
+    sum + order.items.reduce((itemSum, item) => itemSum + item.quantity, 0), 0
+  );
+
+  const newCustomerOrders = filteredOrders.filter(order => order.flags?.isNewCustomer).length;
+  const priorityOrders = filteredOrders.filter(order => order.flags?.priority === 'high').length;
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Analytics</h1>
-        </div>
+        <h1 className="text-3xl font-bold">Production Dashboard</h1>
         <Loading size="lg" className="py-20" />
-      </div>
-    );
-  }
-
-  if (!analyticsData) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Analytics</h1>
-        <div className="text-center py-20">
-          <h3 className="text-lg font-medium mb-2">No analytics data available</h3>
-          <p className="text-muted-foreground">
-            Analytics will be available once you have orders and sales data
-          </p>
-        </div>
       </div>
     );
   }
@@ -282,196 +175,240 @@ export const Analytics: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Analytics</h1>
-        <Select value={timeRange} onValueChange={setTimeRange}>
+        <h1 className="text-3xl font-bold">Production Dashboard</h1>
+        <Select value={dateFilter} onValueChange={setDateFilter}>
           <SelectTrigger className="w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="7days">Last 7 days</SelectItem>
-            <SelectItem value="30days">Last 30 days</SelectItem>
-            <SelectItem value="90days">Last 90 days</SelectItem>
-            <SelectItem value="1year">Last year</SelectItem>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="week">This Week</SelectItem>
+            <SelectItem value="all">All Pending</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Package className="h-4 w-4" />
+              Pending Orders
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(analyticsData.totalRevenue)}</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              {analyticsData.revenueGrowth >= 0 ? (
-                <TrendingUp className="h-4 w-4 mr-1 text-green-500" />
-              ) : (
-                <TrendingDown className="h-4 w-4 mr-1 text-red-500" />
-              )}
-              <span className={analyticsData.revenueGrowth >= 0 ? 'text-green-500' : 'text-red-500'}>
-                {Math.abs(analyticsData.revenueGrowth).toFixed(1)}%
-              </span>
-              <span className="ml-1">from last period</span>
-            </div>
+            <div className="text-3xl font-bold text-orange-600">{filteredOrders.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Orders to prepare</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <Beaker className="h-4 w-4" />
+              Total Items
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.totalOrders}</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              {analyticsData.ordersGrowth >= 0 ? (
-                <TrendingUp className="h-4 w-4 mr-1 text-green-500" />
-              ) : (
-                <TrendingDown className="h-4 w-4 mr-1 text-red-500" />
-              )}
-              <span className={analyticsData.ordersGrowth >= 0 ? 'text-green-500' : 'text-red-500'}>
-                {Math.abs(analyticsData.ordersGrowth).toFixed(1)}%
-              </span>
-              <span className="ml-1">from last period</span>
-            </div>
+            <div className="text-3xl font-bold text-blue-600">{totalItemsToday}</div>
+            <p className="text-xs text-muted-foreground mt-1">Products to prepare</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <User className="h-4 w-4" />
+              New Customers
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.totalProducts}</div>
-            <p className="text-xs text-muted-foreground">Active products in catalog</p>
+            <div className="text-3xl font-bold text-green-600">{newCustomerOrders}</div>
+            <p className="text-xs text-muted-foreground mt-1">First time orders</p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Customers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              Priority Orders
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{analyticsData.totalCustomers}</div>
-            <p className="text-xs text-muted-foreground">
-              Avg. order value: {formatCurrency(analyticsData.avgOrderValue)}
-            </p>
+            <div className="text-3xl font-bold text-red-600">{priorityOrders}</div>
+            <p className="text-xs text-muted-foreground mt-1">Urgent orders</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sales Trend */}
+      {/* Product Summary */}
+      {productSummary.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Sales Trend</CardTitle>
+            <CardTitle>Products to Prepare</CardTitle>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={analyticsData.salesTrend}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="date" 
-                  tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                />
-                <YAxis />
-                <Tooltip 
-                  labelFormatter={(value) => new Date(value).toLocaleDateString()}
-                  formatter={(value, name) => [
-                    name === 'revenue' ? formatCurrency(value as number) : value,
-                    name === 'revenue' ? 'Revenue' : 'Orders'
-                  ]}
-                />
-                <Line type="monotone" dataKey="revenue" stroke="#8884d8" strokeWidth={2} />
-                <Line type="monotone" dataKey="orders" stroke="#82ca9d" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Top Categories */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Categories</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={analyticsData.topCategories}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }: any) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="revenue"
-                >
-                  {analyticsData.topCategories.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(value as number)} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top Products and Recent Orders */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Products */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Top Products</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {analyticsData.topProducts.map((product, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">{product.sales} sold</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {productSummary.map(product => (
+                <div key={product.productId} className="text-center p-3 bg-slate-50 rounded-lg border">
+                  <div className="w-16 h-16 mx-auto mb-2 rounded-full bg-white flex items-center justify-center overflow-hidden">
+                    {product.image ? (
+                      <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Package className="h-8 w-8 text-gray-400" />
+                    )}
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">{formatCurrency(product.revenue)}</p>
-                  </div>
+                  <p className="font-bold text-sm">{product.sku}</p>
+                  <p className="text-xs text-muted-foreground mb-1">{product.weight}</p>
+                  <Badge variant="secondary" className="text-xs">
+                    {product.totalQuantity}x needed
+                  </Badge>
                 </div>
               ))}
             </div>
           </CardContent>
         </Card>
+      )}
 
-        {/* Recent Orders */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Orders</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {analyticsData.recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{order.orderNumber}</p>
-                    <p className="text-sm text-muted-foreground">{order.customerName}</p>
+      {/* Orders List */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold">Orders to Prepare</h2>
+        
+        {filteredOrders.length === 0 ? (
+          <Card>
+            <CardContent className="py-20 text-center">
+              <CheckCircle2 className="mx-auto h-12 w-12 text-green-500 mb-4" />
+              <h3 className="text-lg font-medium mb-2">All caught up!</h3>
+              <p className="text-muted-foreground">No pending orders to prepare right now.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {filteredOrders.map(order => (
+              <Card key={order.id} className="overflow-hidden">
+                <CardHeader className="bg-slate-50 pb-3">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{order.orderId}</CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant={order.status === 'pending' ? 'destructive' : 'default'}>
+                          {order.status}
+                        </Badge>
+                        {order.flags?.isNewCustomer && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                            New Customer
+                          </Badge>
+                        )}
+                        {order.flags?.priority === 'high' && (
+                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
+                            Priority
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {order.createdAt?.toDate ? 
+                          order.createdAt.toDate().toLocaleString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          }) : 'N/A'}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">{formatCurrency(order.amount)}</p>
-                    <Badge className={getStatusColor(order.status)}>
-                      {order.status}
-                    </Badge>
+                </CardHeader>
+                
+                <CardContent className="pt-4">
+                  {/* Customer Info */}
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-start gap-2 mb-2">
+                      <User className="h-4 w-4 text-blue-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{order.customer?.name}</p>
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                          <Phone className="h-3 w-3" />
+                          {order.customer?.phone}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-xs text-muted-foreground">
+                        {order.customer?.address?.fullAddress}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+
+                  {/* Products to Prepare */}
+                  <div className="space-y-3">
+                    {order.items?.map((item, idx) => (
+                      <div key={idx} className="flex gap-3 p-3 border rounded-lg bg-white">
+                        <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                          {item.productDetails.images?.[0] ? (
+                            <img 
+                              src={item.productDetails.images[0]} 
+                              alt={item.productDetails.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Package className="h-8 w-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <div>
+                              <h4 className="font-semibold text-sm">{item.productDetails.name}</h4>
+                              <p className="text-xs text-muted-foreground">SKU: {item.productDetails.sku}</p>
+                            </div>
+                            <Badge className="bg-orange-100 text-orange-800 text-sm font-bold flex-shrink-0">
+                              {item.quantity}x
+                            </Badge>
+                          </div>
+                          
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Size:</span>
+                              <span>{item.productDetails.weight}</span>
+                              <span>•</span>
+                              <span>{item.productDetails.dimensions}</span>
+                            </div>
+                            
+                            {item.productDetails.instructions && (
+                              <div className="mt-2 p-2 bg-yellow-50 rounded border border-yellow-200">
+                                <p className="font-medium text-yellow-800 text-xs mb-1">Instructions:</p>
+                                <p className="text-xs text-yellow-700">{item.productDetails.instructions}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Action Button */}
+                  <div className="mt-4 pt-4 border-t">
+                    <Button 
+                      className="w-full" 
+                      onClick={() => markAsProcessing(order.id)}
+                      variant="default"
+                    >
+                      <CheckCircle2 className="h-4 w-4 mr-2" />
+                      Mark as Processing
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
