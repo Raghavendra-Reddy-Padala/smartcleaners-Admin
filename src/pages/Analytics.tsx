@@ -260,7 +260,7 @@ export const Analytics: React.FC = () => {
                       <Package className="h-8 w-8 text-gray-400" />
                     )}
                   </div>
-                  <p className="font-bold text-sm">{product.sku}</p>
+                  <p className="font-bold text-sm">{product.name}</p>
                   <p className="text-xs text-muted-foreground mb-1">{product.weight}</p>
                   <Badge variant="secondary" className="text-xs">
                     {product.totalQuantity}x needed
