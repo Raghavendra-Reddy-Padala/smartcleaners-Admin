@@ -6,16 +6,18 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye, Package, Truck, CheckCircle, XCircle, Search } from 'lucide-react';
+import { Eye, Package, Truck, Search, Trash2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { db } from '@/lib/firebase';
 import { 
   collection, 
-  getDocs, 
   doc, 
   updateDoc,
   onSnapshot,
   query,
-  orderBy
+  orderBy,
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loading } from '@/components/ui/loading';
@@ -85,6 +87,9 @@ export const Orders: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [trackingNumber, setTrackingNumber] = useState('');
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -180,6 +185,66 @@ export const Orders: React.FC = () => {
     }
   };
 
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedOrderIds(filteredOrders.map(order => order.id));
+    } else {
+      setSelectedOrderIds([]);
+    }
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedOrderIds(prev => [...prev, orderId]);
+    } else {
+      setSelectedOrderIds(prev => prev.filter(id => id !== orderId));
+    }
+  };
+
+  const deleteSelectedOrders = async () => {
+    if (selectedOrderIds.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      const batch = writeBatch(db);
+      selectedOrderIds.forEach(orderId => {
+        batch.delete(doc(db, 'orders', orderId));
+      });
+      await batch.commit();
+
+      toast({
+        title: "Orders deleted",
+        description: `Successfully deleted ${selectedOrderIds.length} order(s)`
+      });
+      setSelectedOrderIds([]);
+      setIsDeleteConfirmOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete orders",
+        variant: "destructive"
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const deleteSingleOrder = async (orderId: string) => {
+    try {
+      await deleteDoc(doc(db, 'orders', orderId));
+      toast({
+        title: "Order deleted",
+        description: "Order has been successfully deleted"
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete order",
+        variant: "destructive"
+      });
+    }
+  };
+
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -202,6 +267,15 @@ export const Orders: React.FC = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Orders</h1>
         <div className="flex items-center gap-4">
+          {selectedOrderIds.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={() => setIsDeleteConfirmOpen(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Selected ({selectedOrderIds.length})
+            </Button>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -286,6 +360,12 @@ export const Orders: React.FC = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox 
+                    checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length}
+                    onCheckedChange={handleSelectAll}
+                  />
+                </TableHead>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Items</TableHead>
@@ -300,6 +380,12 @@ export const Orders: React.FC = () => {
             <TableBody>
               {filteredOrders.map((order) => (
                 <TableRow key={order.id}>
+                  <TableCell>
+                    <Checkbox 
+                      checked={selectedOrderIds.includes(order.id)}
+                      onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{order.orderId}</TableCell>
                   <TableCell>
                     <div>
@@ -366,6 +452,13 @@ export const Orders: React.FC = () => {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => deleteSingleOrder(order.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -384,6 +477,26 @@ export const Orders: React.FC = () => {
           </p>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p>Are you sure you want to delete {selectedOrderIds.length} order(s)? This action cannot be undone.</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)} disabled={isDeleting}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={deleteSelectedOrders} disabled={isDeleting}>
+                {isDeleting ? 'Deleting...' : 'Delete Orders'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Order Details Modal */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
