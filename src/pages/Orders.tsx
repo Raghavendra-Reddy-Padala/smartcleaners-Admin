@@ -90,11 +90,25 @@ export const Orders: React.FC = () => {
         id: doc.id,
         ...doc.data()
       })) as Order[];
+      
+      // Play notification sound for new orders
+      if (!loading && ordersData.length > orders.length) {
+        const audio = new Audio('/order.mp3');
+        audio.play().catch(error => {
+          console.log('Audio play failed:', error);
+        });
+        
+        toast({
+          title: "New Order Received! 🔔",
+          description: `Order ${ordersData[0]?.orderId} from ${ordersData[0]?.customer?.name}`,
+        });
+      }
+      
       setOrders(ordersData);
       setLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [orders.length, loading, toast]);
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
