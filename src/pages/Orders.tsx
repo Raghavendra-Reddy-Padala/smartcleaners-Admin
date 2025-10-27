@@ -6,19 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye, Package, Truck, Search, Trash2 } from 'lucide-react';
+import { Eye, Package, Truck, Search, Trash2, FileText, Send, MapPin, Copy } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { db } from '@/lib/firebase';
-import { 
-  collection, 
-  doc, 
-  updateDoc,
-  onSnapshot,
-  query,
-  orderBy,
-  deleteDoc,
-  writeBatch
-} from 'firebase/firestore';
+import { collection, doc, updateDoc, onSnapshot, query, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loading } from '@/components/ui/loading';
 
@@ -102,38 +93,37 @@ export const Orders: React.FC = () => {
       setOrders(ordersData);
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'confirmed': return 'bg-blue-100 text-blue-800';
-      case 'processing': return 'bg-purple-100 text-purple-800';
-      case 'shipped': return 'bg-orange-100 text-orange-800';
-      case 'delivered': return 'bg-green-100 text-green-800';
-      case 'cancelled': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    const colors: Record<string, string> = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      confirmed: 'bg-blue-100 text-blue-800',
+      processing: 'bg-purple-100 text-purple-800',
+      shipped: 'bg-orange-100 text-orange-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
   const getPaymentStatusColor = (paymentMethod: string) => {
-    switch (paymentMethod) {
-      case 'cash_on_delivery': return 'bg-yellow-100 text-yellow-800';
-      case 'online': return 'bg-green-100 text-green-800';
-      case 'card': return 'bg-blue-100 text-blue-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    const colors: Record<string, string> = {
+      cash_on_delivery: 'bg-yellow-100 text-yellow-800',
+      online: 'bg-green-100 text-green-800',
+      card: 'bg-blue-100 text-blue-800'
+    };
+    return colors[paymentMethod] || 'bg-gray-100 text-gray-800';
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-orange-100 text-orange-800';
-      case 'normal': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    const colors: Record<string, string> = {
+      high: 'bg-red-100 text-red-800',
+      medium: 'bg-orange-100 text-orange-800',
+      normal: 'bg-green-100 text-green-800'
+    };
+    return colors[priority] || 'bg-gray-100 text-gray-800';
   };
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
@@ -164,7 +154,6 @@ export const Orders: React.FC = () => {
       });
       return;
     }
-
     try {
       await updateDoc(doc(db, 'orders', orderId), {
         trackingNumber: trackingNumber,
@@ -185,33 +174,73 @@ export const Orders: React.FC = () => {
     }
   };
 
-  const handleSelectAll = (checked: boolean) => {
-    if (checked) {
-      setSelectedOrderIds(filteredOrders.map(order => order.id));
-    } else {
-      setSelectedOrderIds([]);
+  const generateGoogleMapsLink = (address: string) => {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  };
+
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({
+        title: "Copied!",
+        description: `${label} copied to clipboard`
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to copy to clipboard",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleSelectOrder = (orderId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedOrderIds(prev => [...prev, orderId]);
-    } else {
-      setSelectedOrderIds(prev => prev.filter(id => id !== orderId));
+  const generateBillPDF = (order: Order) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      toast({
+        title: "Error",
+        description: "Please allow popups to generate bill",
+        variant: "destructive"
+      });
+      return;
     }
+
+    const billHTML = `<!DOCTYPE html><html><head><title>Invoice - ${order.orderId}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:40px;color:#333;background:#fff}.invoice-container{max-width:800px;margin:0 auto}.header{text-align:center;margin-bottom:30px;border-bottom:3px solid #2563eb;padding-bottom:20px}.company-name{font-size:32px;font-weight:700;color:#2563eb;margin-bottom:5px}.invoice-title{font-size:24px;color:#666;margin-top:10px}.section{margin:25px 0}.section-title{font-size:16px;font-weight:700;color:#2563eb;margin-bottom:10px;border-bottom:2px solid #e5e7eb;padding-bottom:5px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.info-label{font-size:12px;color:#666;margin-bottom:3px}.info-value{font-size:14px;font-weight:500}.badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:500;margin-top:5px}.badge-new{background:#dbeafe;color:#1e40af}table{width:100%;border-collapse:collapse;margin-top:15px}th{background:#f3f4f6;padding:12px;text-align:left;font-size:13px;font-weight:600;border-bottom:2px solid #2563eb}td{padding:12px;border-bottom:1px solid #e5e7eb;font-size:13px}.item-name{font-weight:500}.item-details{font-size:11px;color:#666;margin-top:2px}.text-right{text-align:right}.pricing-summary{margin-top:30px;background:#f9fafb;padding:20px;border-radius:8px}.pricing-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}.pricing-row.discount{color:#16a34a}.pricing-row.total{font-size:18px;font-weight:700;border-top:2px solid #2563eb;margin-top:10px;padding-top:15px}.footer{margin-top:40px;text-align:center;color:#666;font-size:12px;padding-top:20px;border-top:1px solid #e5e7eb}@media print{body{padding:20px}.no-print{display:none}}</style></head><body><div class="invoice-container"><div class="header"><div class="company-name">Smart Cleaners</div><div style="font-size:14px;color:#666;margin-top:5px">Nizampet,Hyderabad,Telanagana - 123456<br>Phone: +91 90146 32639 | Email:smartcleaner.shop@gmail.com</div><div class="invoice-title">INVOICE</div></div><div class="section"><div class="info-grid"><div class="info-block"><div class="info-label">Invoice Number:</div><div class="info-value">${order.orderId}</div></div><div class="info-block"><div class="info-label">Invoice Date:</div><div class="info-value">${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : 'N/A'}</div></div><div class="info-block"><div class="info-label">Payment Method:</div><div class="info-value">${order.paymentMethod.replace('_', ' ').toUpperCase()}</div></div><div class="info-block"><div class="info-label">Order Status:</div><div class="info-value">${order.status.toUpperCase()}</div></div></div></div><div class="section"><div class="section-title">Bill To</div><div class="info-value">${order.customer?.name}</div><div style="font-size:13px;color:#666;margin-top:5px">Phone: ${order.customer?.phone}<br>${order.customer?.address?.fullAddress}</div>${order.flags?.isNewCustomer ? '<div class="badge badge-new">New Customer</div>' : ''}</div><div class="section"><div class="section-title">Order Items</div><table><thead><tr><th>Item</th><th>SKU</th><th class="text-right">Qty</th><th class="text-right">Unit Price</th><th class="text-right">Discount</th><th class="text-right">Total</th></tr></thead><tbody>${order.items?.map(item => `<tr><td><div class="item-name">${item.productDetails?.name}</div><div class="item-details">${item.productDetails?.dimensions} | ${item.productDetails?.weight}</div></td><td>${item.productDetails?.sku}</td><td class="text-right">${item.quantity}</td><td class="text-right">₹${item.unitPrice.toLocaleString()}</td><td class="text-right">${item.bulkDiscountPerUnit > 0 ? `₹${item.bulkDiscountPerUnit.toLocaleString()}` : '-'}</td><td class="text-right">₹${item.lineTotal?.toLocaleString()}</td></tr>`).join('')}</tbody></table></div><div class="pricing-summary"><div class="pricing-row"><span>Subtotal (${order.pricing?.itemCount} items):</span><span>₹${order.pricing?.subtotal?.toLocaleString()}</span></div>${order.pricing?.bulkDiscountTotal > 0 ? `<div class="pricing-row discount"><span>Bulk Discount:</span><span>-₹${order.pricing.bulkDiscountTotal.toLocaleString()}</span></div>` : ''}<div class="pricing-row"><span>Shipping Cost:</span><span>₹${order.pricing?.shippingCost?.toLocaleString() || '0'}</span></div><div class="pricing-row total"><span>Total Amount:</span><span>₹${order.pricing?.finalTotal?.toLocaleString()}</span></div></div>${order.trackingNumber ? `<div class="section"><div class="section-title">Shipping Information</div><div class="info-label">Tracking Number:</div><div class="info-value">${order.trackingNumber}</div></div>` : ''}<div class="footer"><p><strong>Thank you for your business!</strong></p><p style="margin-top:10px">For any queries, contact us at smartcleaners.shop@gmail.com or +91 9014632639</p></div><div class="no-print" style="margin-top:30px;text-align:center"><button onclick="window.print()" style="padding:12px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;margin-right:10px">Print Invoice</button><button onclick="window.close()" style="padding:12px 24px;background:#6b7280;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">Close</button></div></div></body></html>`;
+
+    printWindow.document.write(billHTML);
+    printWindow.document.close();
+    toast({
+      title: "Bill Generated",
+      description: "Invoice opened. You can print or save as PDF."
+    });
+  };
+
+  const sendBillToCustomer = (order: Order) => {
+    const message = `Hello ${order.customer?.name},\n\nThank you for your order!\n\nOrder ID: ${order.orderId}\nTotal Amount: ₹${order.pricing?.finalTotal?.toLocaleString()}\nPayment: ${order.paymentMethod.replace('_', ' ')}\n\nYour invoice is ready. Click the link to view details.\n\nStatus: ${order.status}${order.trackingNumber ? `\nTracking: ${order.trackingNumber}` : ''}\n\nThank you!`;
+    const whatsappNumber = order.customer?.phone.replace(/\D/g, '');
+    const whatsappUrl = `https://wa.me/91${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+    toast({
+      title: "WhatsApp Opened",
+      description: "Send bill to customer via WhatsApp"
+    });
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectedOrderIds(checked ? filteredOrders.map(o => o.id) : []);
+  };
+
+  const handleSelectOrder = (orderId: string, checked: boolean) => {
+    setSelectedOrderIds(prev => checked ? [...prev, orderId] : prev.filter(id => id !== orderId));
   };
 
   const deleteSelectedOrders = async () => {
     if (selectedOrderIds.length === 0) return;
-
     setIsDeleting(true);
     try {
       const batch = writeBatch(db);
-      selectedOrderIds.forEach(orderId => {
-        batch.delete(doc(db, 'orders', orderId));
-      });
+      selectedOrderIds.forEach(id => batch.delete(doc(db, 'orders', id)));
       await batch.commit();
-
       toast({
         title: "Orders deleted",
         description: `Successfully deleted ${selectedOrderIds.length} order(s)`
@@ -234,7 +263,7 @@ export const Orders: React.FC = () => {
       await deleteDoc(doc(db, 'orders', orderId));
       toast({
         title: "Order deleted",
-        description: "Order has been successfully deleted"
+        description: "Order successfully deleted"
       });
     } catch (error) {
       toast({
@@ -268,22 +297,14 @@ export const Orders: React.FC = () => {
         <h1 className="text-3xl font-bold">Orders</h1>
         <div className="flex items-center gap-4">
           {selectedOrderIds.length > 0 && (
-            <Button 
-              variant="destructive" 
-              onClick={() => setIsDeleteConfirmOpen(true)}
-            >
+            <Button variant="destructive" onClick={() => setIsDeleteConfirmOpen(true)}>
               <Trash2 className="h-4 w-4 mr-2" />
               Delete Selected ({selectedOrderIds.length})
             </Button>
           )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search orders..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 w-64"
-            />
+            <Input placeholder="Search orders..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10 w-64" />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-40">
@@ -302,7 +323,6 @@ export const Orders: React.FC = () => {
         </div>
       </div>
 
-      {/* Orders Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         <Card>
           <CardHeader className="pb-2">
@@ -354,17 +374,13 @@ export const Orders: React.FC = () => {
         </Card>
       </div>
 
-      {/* Orders Table */}
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="w-12">
-                  <Checkbox 
-                    checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length}
-                    onCheckedChange={handleSelectAll}
-                  />
+                  <Checkbox checked={filteredOrders.length > 0 && selectedOrderIds.length === filteredOrders.length} onCheckedChange={handleSelectAll} />
                 </TableHead>
                 <TableHead>Order ID</TableHead>
                 <TableHead>Customer</TableHead>
@@ -381,10 +397,7 @@ export const Orders: React.FC = () => {
               {filteredOrders.map((order) => (
                 <TableRow key={order.id}>
                   <TableCell>
-                    <Checkbox 
-                      checked={selectedOrderIds.includes(order.id)}
-                      onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)}
-                    />
+                    <Checkbox checked={selectedOrderIds.includes(order.id)} onCheckedChange={(checked) => handleSelectOrder(order.id, checked as boolean)} />
                   </TableCell>
                   <TableCell className="font-medium">{order.orderId}</TableCell>
                   <TableCell>
@@ -401,17 +414,13 @@ export const Orders: React.FC = () => {
                     <div>
                       <div className="font-medium">₹{(order.pricing?.finalTotal || 0).toLocaleString()}</div>
                       {order.pricing?.bulkDiscountTotal > 0 && (
-                        <div className="text-xs text-green-600">
-                          Discount: ₹{order.pricing.bulkDiscountTotal}
-                        </div>
+                        <div className="text-xs text-green-600">Discount: ₹{order.pricing.bulkDiscountTotal}</div>
                       )}
                     </div>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Badge className={getStatusColor(order.status)}>
-                        {order.status}
-                      </Badge>
+                      <Badge className={getStatusColor(order.status)}>{order.status}</Badge>
                       <Select value={order.status} onValueChange={(value) => updateOrderStatus(order.id, value)}>
                         <SelectTrigger className="w-32 h-8">
                           <SelectValue />
@@ -442,21 +451,13 @@ export const Orders: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedOrder(order);
-                          setIsDetailsOpen(true);
-                        }}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => { setSelectedOrder(order); setIsDetailsOpen(true); }} title="View Details">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => deleteSingleOrder(order.id)}
-                      >
+                      <Button size="sm" variant="outline" onClick={() => generateBillPDF(order)} title="Generate PDF Bill">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => deleteSingleOrder(order.id)} title="Delete Order">
                         <Trash2 className="h-4 w-4 text-red-600" />
                       </Button>
                     </div>
@@ -478,7 +479,6 @@ export const Orders: React.FC = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <DialogContent>
           <DialogHeader>
@@ -487,9 +487,7 @@ export const Orders: React.FC = () => {
           <div className="space-y-4">
             <p>Are you sure you want to delete {selectedOrderIds.length} order(s)? This action cannot be undone.</p>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)} disabled={isDeleting}>
-                Cancel
-              </Button>
+              <Button variant="outline" onClick={() => setIsDeleteConfirmOpen(false)} disabled={isDeleting}>Cancel</Button>
               <Button variant="destructive" onClick={deleteSelectedOrders} disabled={isDeleting}>
                 {isDeleting ? 'Deleting...' : 'Delete Orders'}
               </Button>
@@ -498,7 +496,6 @@ export const Orders: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Order Details Modal */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -506,16 +503,13 @@ export const Orders: React.FC = () => {
           </DialogHeader>
           {selectedOrder && (
             <div className="space-y-6">
-              {/* Order Status and Payment */}
               <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Order Status</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <Badge className={getStatusColor(selectedOrder.status)}>
-                      {selectedOrder.status}
-                    </Badge>
+                    <Badge className={getStatusColor(selectedOrder.status)}>{selectedOrder.status}</Badge>
                     {selectedOrder.trackingNumber && (
                       <div className="mt-2">
                         <p className="text-sm text-muted-foreground">Tracking Number:</p>
@@ -544,16 +538,13 @@ export const Orders: React.FC = () => {
                     </Badge>
                     {selectedOrder.flags?.requiresVerification && (
                       <div className="mt-2">
-                        <Badge variant="outline" className="text-orange-600">
-                          Requires Verification
-                        </Badge>
+                        <Badge variant="outline" className="text-orange-600">Requires Verification</Badge>
                       </div>
                     )}
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Customer Information */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Customer Information</CardTitle>
@@ -569,13 +560,22 @@ export const Orders: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-sm font-medium mb-1">Delivery Address:</p>
-                      <p className="text-sm">{selectedOrder.customer?.address?.fullAddress}</p>
+                      <p className="text-sm mb-2">{selectedOrder.customer?.address?.fullAddress}</p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => window.open(generateGoogleMapsLink(selectedOrder.customer?.address?.fullAddress), '_blank')}>
+                          <MapPin className="h-4 w-4 mr-2" />
+                          Open in Maps
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => copyToClipboard(generateGoogleMapsLink(selectedOrder.customer?.address?.fullAddress), 'Maps link')}>
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy Link
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Order Items */}
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">Order Items</CardTitle>
@@ -609,9 +609,7 @@ export const Orders: React.FC = () => {
                           <TableCell>
                             ₹{item.finalUnitPrice}
                             {item.bulkDiscountPerUnit > 0 && (
-                              <div className="text-xs text-green-600">
-                                (-₹{item.bulkDiscountPerUnit})
-                              </div>
+                              <div className="text-xs text-green-600">(-₹{item.bulkDiscountPerUnit})</div>
                             )}
                           </TableCell>
                           <TableCell className="font-medium">₹{item.lineTotal?.toLocaleString()}</TableCell>
@@ -620,7 +618,6 @@ export const Orders: React.FC = () => {
                     </TableBody>
                   </Table>
                   
-                  {/* Pricing Breakdown */}
                   <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium mb-3">Pricing Breakdown</h4>
                     <div className="space-y-2 text-sm">
@@ -647,7 +644,44 @@ export const Orders: React.FC = () => {
                 </CardContent>
               </Card>
 
-              {/* Add Tracking Number */}
+              <div className="flex gap-4">
+                <Card className="flex-1">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Send Bill to Customer</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2">
+                      <Button onClick={() => generateBillPDF(selectedOrder)} className="flex-1">
+                        <FileText className="h-4 w-4 mr-2" />
+                        Generate PDF
+                      </Button>
+                      <Button onClick={() => sendBillToCustomer(selectedOrder)} variant="outline" className="flex-1">
+                        <Send className="h-4 w-4 mr-2" />
+                        Send via WhatsApp
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="flex-1">
+                  <CardHeader>
+                    <CardTitle className="text-lg">Share Location</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-2">
+                      <Button onClick={() => window.open(generateGoogleMapsLink(selectedOrder.customer?.address?.fullAddress), '_blank')} className="flex-1">
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Open Maps
+                      </Button>
+                      <Button onClick={() => copyToClipboard(generateGoogleMapsLink(selectedOrder.customer?.address?.fullAddress), 'Maps link')} variant="outline" className="flex-1">
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Link
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
               {selectedOrder.status !== 'shipped' && selectedOrder.status !== 'delivered' && (
                 <Card>
                   <CardHeader>

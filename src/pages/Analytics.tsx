@@ -181,9 +181,9 @@ export const Analytics: React.FC = () => {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">All Pending</SelectItem>
             <SelectItem value="today">Today</SelectItem>
             <SelectItem value="week">This Week</SelectItem>
-            <SelectItem value="all">All Pending</SelectItem>
           </SelectContent>
         </Select>
       </div>
