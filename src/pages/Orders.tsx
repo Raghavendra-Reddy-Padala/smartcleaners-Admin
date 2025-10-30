@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Eye, Package, Truck, Search, Trash2, FileText, Send, MapPin, Copy } from 'lucide-react';
+import { Eye, Package, Truck, Search, Trash2, FileText, Send, MapPin, Copy, Bell } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { db } from '@/lib/firebase';
 import { collection, doc, updateDoc, onSnapshot, query, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -81,6 +81,11 @@ export const Orders: React.FC = () => {
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [newOrderDialog, setNewOrderDialog] = useState<{ isOpen: boolean; order: Order | null; audio: HTMLAudioElement | null }>({ 
+    isOpen: false, 
+    order: null, 
+    audio: null 
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -94,13 +99,15 @@ export const Orders: React.FC = () => {
       // Play notification sound for new orders
       if (!loading && ordersData.length > orders.length) {
         const audio = new Audio('/order.mp3');
+        audio.loop = true;
         audio.play().catch(error => {
           console.log('Audio play failed:', error);
         });
         
-        toast({
-          title: "New Order Received! 🔔",
-          description: `Order ${ordersData[0]?.orderId} from ${ordersData[0]?.customer?.name}`,
+        setNewOrderDialog({ 
+          isOpen: true, 
+          order: ordersData[0], 
+          audio: audio 
         });
       }
       
@@ -108,7 +115,15 @@ export const Orders: React.FC = () => {
       setLoading(false);
     });
     return () => unsubscribe();
-  }, [orders.length, loading, toast]);
+  }, [orders.length, loading]);
+
+  const handleAcceptOrder = () => {
+    if (newOrderDialog.audio) {
+      newOrderDialog.audio.pause();
+      newOrderDialog.audio.currentTime = 0;
+    }
+    setNewOrderDialog({ isOpen: false, order: null, audio: null });
+  };
 
   const getStatusColor = (status: string) => {
     const colors: Record<string, string> = {
@@ -493,6 +508,54 @@ export const Orders: React.FC = () => {
         </div>
       )}
 
+      {/* New Order Notification Dialog */}
+      <Dialog open={newOrderDialog.isOpen} onOpenChange={(open) => !open && handleAcceptOrder()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Bell className="h-6 w-6 text-green-600 animate-bounce" />
+              New Order Received! 🎉
+            </DialogTitle>
+          </DialogHeader>
+          {newOrderDialog.order && (
+            <div className="space-y-4 py-4">
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Order ID:</span>
+                    <span className="text-sm font-bold">{newOrderDialog.order.orderId}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Customer:</span>
+                    <span className="text-sm font-bold">{newOrderDialog.order.customer?.name}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Phone:</span>
+                    <span className="text-sm">{newOrderDialog.order.customer?.phone}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Amount:</span>
+                    <span className="text-lg font-bold text-green-600">
+                      ₹{newOrderDialog.order.pricing?.finalTotal?.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-600">Items:</span>
+                    <span className="text-sm">{newOrderDialog.order.items?.length || 0} item(s)</span>
+                  </div>
+                </div>
+              </div>
+              <Button 
+                onClick={handleAcceptOrder} 
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6 text-lg"
+              >
+                Accept Order
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
         <DialogContent>
           <DialogHeader>
@@ -658,64 +721,8 @@ export const Orders: React.FC = () => {
                 </CardContent>
               </Card>
 
-              <div className="flex gap-4">
-                <Card className="flex-1">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Send Bill to Customer</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2">
-                      <Button onClick={() => generateBillPDF(selectedOrder)} className="flex-1">
-                        <FileText className="h-4 w-4 mr-2" />
-                        Generate PDF
-                      </Button>
-                      <Button onClick={() => sendBillToCustomer(selectedOrder)} variant="outline" className="flex-1">
-                        <Send className="h-4 w-4 mr-2" />
-                        Send via WhatsApp
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="flex-1">
-                  <CardHeader>
-                    <CardTitle className="text-lg">Share Location</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2">
-                      <Button onClick={() => window.open(generateGoogleMapsLink(selectedOrder.customer?.address?.fullAddress), '_blank')} className="flex-1">
-                        <MapPin className="h-4 w-4 mr-2" />
-                        Open Maps
-                      </Button>
-                      <Button onClick={() => copyToClipboard(generateGoogleMapsLink(selectedOrder.customer?.address?.fullAddress), 'Maps link')} variant="outline" className="flex-1">
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy Link
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {selectedOrder.status !== 'shipped' && selectedOrder.status !== 'delivered' && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-lg">Add Tracking Number</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter tracking number"
-                        value={trackingNumber}
-                        onChange={(e) => setTrackingNumber(e.target.value)}
-                      />
-                      <Button onClick={() => updateTrackingNumber(selectedOrder.id)}>
-                        <Truck className="h-4 w-4 mr-2" />
-                        Ship Order
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+            
+             
             </div>
           )}
         </DialogContent>

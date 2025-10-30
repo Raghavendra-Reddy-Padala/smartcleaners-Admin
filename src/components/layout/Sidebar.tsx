@@ -38,16 +38,16 @@ export const Sidebar: React.FC = () => {
   };
 
   return (
-    <div className="w-64 bg-sidebar text-sidebar-foreground h-screen flex flex-col">
+    <div className="w-64 bg-slate-900 text-white h-screen flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-sidebar-hover">
+      <div className="p-6 border-b border-slate-700">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-lg bg-sidebar-active flex items-center justify-center">
+          <div className="h-10 w-10 rounded-lg bg-blue-600 flex items-center justify-center">
             <Sparkles className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold">Smart Cleaners</h1>
-            <p className="text-xs text-sidebar-foreground/70">Admin Dashboard</p>
+            <h1 className="text-lg font-bold text-white">Smart Cleaners</h1>
+            <p className="text-xs text-slate-400">Admin Dashboard</p>
           </div>
         </div>
       </div>
@@ -59,7 +59,11 @@ export const Sidebar: React.FC = () => {
             key={item.name}
             to={item.href}
             className={({ isActive }) =>
-              `sidebar-item ${isActive ? 'active' : ''}`
+              `flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                isActive 
+                  ? 'bg-blue-600 text-white' 
+                  : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+              }`
             }
           >
             <item.icon className="h-5 w-5" />
@@ -69,16 +73,16 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* User Info & Logout */}
-      <div className="p-4 border-t border-sidebar-hover">
+      <div className="p-4 border-t border-slate-700">
         <div className="mb-3">
-          <p className="text-sm font-medium">{currentUser?.email}</p>
-          <p className="text-xs text-sidebar-foreground/70">Administrator</p>
+          <p className="text-sm font-medium text-white">{currentUser?.email}</p>
+          <p className="text-xs text-slate-400">Administrator</p>
         </div>
         <Button
           onClick={handleLogout}
           variant="outline"
           size="sm"
-          className="w-full bg-transparent border-sidebar-hover text-sidebar-foreground hover:bg-sidebar-hover"
+          className="w-full bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700 hover:text-white"
         >
           <LogOut className="h-4 w-4 mr-2" />
           Logout
