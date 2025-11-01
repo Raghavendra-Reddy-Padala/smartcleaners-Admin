@@ -10,7 +10,8 @@ import {
   LogOut,
   Sparkles,
   ShoppingBag,
-  Package2
+  Package2,
+  Users
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Orders', href: '/orders', icon: ShoppingCart },
   { name: 'Bulk Orders', href: '/bulk-orders', icon: ShoppingBag },
   { name: 'Combo Orders', href: '/combo-orders', icon: Package2 },
+    { name: 'Customers', href: '/customers', icon: Users }, // Add this line
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

@@ -16,6 +16,7 @@ import { Analytics } from "@/pages/Analytics";
 import { Settings } from "@/pages/Settings";
 import { FullPageLoading } from "@/components/ui/loading";
 import NotFound from "./pages/NotFound";
+import { Customers } from "./pages/customers";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const AppContent = () => {
           <Route path="bulk-orders" element={<BulkOrders />} />
           <Route path="combo-orders" element={<ComboOrders />} />
           <Route path="analytics" element={<Analytics />} />
+          <Route path="customers" element={<Customers />} />
           <Route path="settings" element={<Settings />} />
         </Route>
         <Route path="*" element={<NotFound />} />

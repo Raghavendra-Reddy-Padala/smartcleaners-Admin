@@ -66,7 +66,7 @@ interface ProductSummary {
 export const Analytics: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dateFilter, setDateFilter] = useState('today');
+  const [dateFilter, setDateFilter] = useState('all');
   const { toast } = useToast();
 
   useEffect(() => {
