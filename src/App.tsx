@@ -17,6 +17,7 @@ import { Settings } from "@/pages/Settings";
 import { FullPageLoading } from "@/components/ui/loading";
 import NotFound from "./pages/NotFound";
 import { Customers } from "./pages/customers";
+import { Inventory } from "./pages/Inventorymanagement";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const AppContent = () => {
           <Route index element={<Dashboard />} />
           <Route path="categories" element={<Categories />} />
           <Route path="products" element={<Products />} />
+          <Route path="inventory" element={<Inventory />} />
           <Route path="orders" element={<Orders />} />
           <Route path="bulk-orders" element={<BulkOrders />} />
           <Route path="combo-orders" element={<ComboOrders />} />
