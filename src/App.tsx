@@ -18,6 +18,7 @@ import { FullPageLoading } from "@/components/ui/loading";
 import NotFound from "./pages/NotFound";
 import { Customers } from "./pages/customers";
 import { Inventory } from "./pages/Inventorymanagement";
+import { PaymentRecords } from "./pages/paymentrecords";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,8 @@ const AppContent = () => {
           <Route path="analytics" element={<Analytics />} />
           <Route path="customers" element={<Customers />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="payment-records" element={<PaymentRecords />} />
+
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
