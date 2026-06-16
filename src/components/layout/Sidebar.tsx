@@ -12,13 +12,15 @@ import {
   ShoppingBag,
   Package2,
   Users,
-  Warehouse
+  Warehouse,
+  Store
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Outlet POS', href: '/pos', icon: Store },
   { name: 'Categories', href: '/categories', icon: FolderTree },
   { name: 'Products', href: '/products', icon: Package },
   { name: 'Inventory', href: '/inventory', icon: Warehouse },

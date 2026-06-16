@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import { Customers } from "./pages/customers";
 import { Inventory } from "./pages/Inventorymanagement";
 import { PaymentRecords } from "./pages/paymentrecords";
+import { OutletPOS } from "@/pages/OutletPOS";
 
 const queryClient = new QueryClient();
 
@@ -38,6 +39,7 @@ const AppContent = () => {
       <Routes>
         <Route path="/" element={<DashboardLayout />}>
           <Route index element={<Dashboard />} />
+          <Route path="pos" element={<OutletPOS />} />
           <Route path="categories" element={<Categories />} />
           <Route path="products" element={<Products />} />
           <Route path="inventory" element={<Inventory />} />
