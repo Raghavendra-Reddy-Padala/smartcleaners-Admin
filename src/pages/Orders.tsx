@@ -81,10 +81,16 @@ export const Orders: React.FC = () => {
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>([]);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [newOrderDialog, setNewOrderDialog] = useState<{ isOpen: boolean; order: Order | null; audio: HTMLAudioElement | null }>({ 
-    isOpen: false, 
-    order: null, 
-    audio: null 
+  const [newOrderDialog, setNewOrderDialog] = useState<{ isOpen: boolean; order: Order | null; audio: HTMLAudioElement | null }>({
+    isOpen: false,
+    order: null,
+    audio: null
+  });
+  const [gstDialog, setGstDialog] = useState<{ isOpen: boolean; order: Order | null; isGstEnabled: boolean; gstPercentage: string }>({
+    isOpen: false,
+    order: null,
+    isGstEnabled: false,
+    gstPercentage: '18'
   });
   const { toast } = useToast();
 
@@ -95,7 +101,7 @@ export const Orders: React.FC = () => {
         id: doc.id,
         ...doc.data()
       })) as Order[];
-      
+
       // Play notification sound for new orders
       if (!loading && ordersData.length > orders.length) {
         const audio = new Audio('/order.mp3');
@@ -103,14 +109,14 @@ export const Orders: React.FC = () => {
         audio.play().catch(error => {
           console.log('Audio play failed:', error);
         });
-        
-        setNewOrderDialog({ 
-          isOpen: true, 
-          order: ordersData[0], 
-          audio: audio 
+
+        setNewOrderDialog({
+          isOpen: true,
+          order: ordersData[0],
+          audio: audio
         });
       }
-      
+
       setOrders(ordersData);
       setLoading(false);
     });
@@ -223,7 +229,7 @@ export const Orders: React.FC = () => {
     }
   };
 
-  const generateBillPDF = (order: Order) => {
+  const generateBillPDF = (order: Order, gstPercentage: number = 0) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast({
@@ -234,7 +240,11 @@ export const Orders: React.FC = () => {
       return;
     }
 
-    const billHTML = `<!DOCTYPE html><html><head><title>Invoice - ${order.orderId}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:40px;color:#333;background:#fff}.invoice-container{max-width:800px;margin:0 auto}.header{text-align:center;margin-bottom:30px;border-bottom:3px solid #2563eb;padding-bottom:20px}.company-name{font-size:32px;font-weight:700;color:#2563eb;margin-bottom:5px}.invoice-title{font-size:24px;color:#666;margin-top:10px}.section{margin:25px 0}.section-title{font-size:16px;font-weight:700;color:#2563eb;margin-bottom:10px;border-bottom:2px solid #e5e7eb;padding-bottom:5px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.info-label{font-size:12px;color:#666;margin-bottom:3px}.info-value{font-size:14px;font-weight:500}.badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:500;margin-top:5px}.badge-new{background:#dbeafe;color:#1e40af}table{width:100%;border-collapse:collapse;margin-top:15px}th{background:#f3f4f6;padding:12px;text-align:left;font-size:13px;font-weight:600;border-bottom:2px solid #2563eb}td{padding:12px;border-bottom:1px solid #e5e7eb;font-size:13px}.item-name{font-weight:500}.item-details{font-size:11px;color:#666;margin-top:2px}.text-right{text-align:right}.pricing-summary{margin-top:30px;background:#f9fafb;padding:20px;border-radius:8px}.pricing-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}.pricing-row.discount{color:#16a34a}.pricing-row.total{font-size:18px;font-weight:700;border-top:2px solid #2563eb;margin-top:10px;padding-top:15px}.footer{margin-top:40px;text-align:center;color:#666;font-size:12px;padding-top:20px;border-top:1px solid #e5e7eb}@media print{body{padding:20px}.no-print{display:none}}</style></head><body><div class="invoice-container"><div class="header"><div class="company-name">Smart Cleaners</div><div style="font-size:14px;color:#666;margin-top:5px">Smart Cleaners: Bapu Nagar, Chintal, Hyderabad – 500054<br>Phone: +91 90146 32639 | Email:smartcleaner.shop@gmail.com</div><div class="invoice-title">INVOICE</div></div><div class="section"><div class="info-grid"><div class="info-block"><div class="info-label">Invoice Number:</div><div class="info-value">${order.orderId}</div></div><div class="info-block"><div class="info-label">Invoice Date:</div><div class="info-value">${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : 'N/A'}</div></div><div class="info-block"><div class="info-label">Payment Method:</div><div class="info-value">${order.paymentMethod.replace('_', ' ').toUpperCase()}</div></div><div class="info-block"><div class="info-label">Order Status:</div><div class="info-value">${order.status.toUpperCase()}</div></div></div></div><div class="section"><div class="section-title">Bill To</div><div class="info-value">${order.customer?.name}</div><div style="font-size:13px;color:#666;margin-top:5px">Phone: ${order.customer?.phone}<br>${order.customer?.address?.fullAddress}</div>${order.flags?.isNewCustomer ? '<div class="badge badge-new">New Customer</div>' : ''}</div><div class="section"><div class="section-title">Order Items</div><table><thead><tr><th>Item</th><th>SKU</th><th class="text-right">Qty</th><th class="text-right">Unit Price</th><th class="text-right">Discount</th><th class="text-right">Total</th></tr></thead><tbody>${order.items?.map(item => `<tr><td><div class="item-name">${item.productDetails?.name}</div><div class="item-details">${item.productDetails?.dimensions} | ${item.productDetails?.weight}</div></td><td>${item.productDetails?.sku}</td><td class="text-right">${item.quantity}</td><td class="text-right">₹${item.unitPrice.toLocaleString()}</td><td class="text-right">${item.bulkDiscountPerUnit > 0 ? `₹${item.bulkDiscountPerUnit.toLocaleString()}` : '-'}</td><td class="text-right">₹${item.lineTotal?.toLocaleString()}</td></tr>`).join('')}</tbody></table></div><div class="pricing-summary"><div class="pricing-row"><span>Subtotal (${order.pricing?.itemCount} items):</span><span>₹${order.pricing?.subtotal?.toLocaleString()}</span></div>${order.pricing?.bulkDiscountTotal > 0 ? `<div class="pricing-row discount"><span>Bulk Discount:</span><span>-₹${order.pricing.bulkDiscountTotal.toLocaleString()}</span></div>` : ''}<div class="pricing-row"><span>Shipping Cost:</span><span>₹${order.pricing?.shippingCost?.toLocaleString() || '0'}</span></div><div class="pricing-row total"><span>Total Amount:</span><span>₹${order.pricing?.finalTotal?.toLocaleString()}</span></div></div>${order.trackingNumber ? `<div class="section"><div class="section-title">Shipping Information</div><div class="info-label">Tracking Number:</div><div class="info-value">${order.trackingNumber}</div></div>` : ''}<div class="footer"><p><strong>Thank you for your business!</strong></p><p style="margin-top:10px">For any queries, contact us at smartcleaners.shop@gmail.com or +91 9014632639</p></div><div class="no-print" style="margin-top:30px;text-align:center"><button onclick="window.print()" style="padding:12px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;margin-right:10px">Print Invoice</button><button onclick="window.close()" style="padding:12px 24px;background:#6b7280;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">Close</button></div></div></body></html>`;
+    const finalTotalBeforeGst = order.pricing?.finalTotal || 0;
+    const gstAmount = gstPercentage > 0 ? (finalTotalBeforeGst * gstPercentage) / 100 : 0;
+    const finalTotalWithGst = finalTotalBeforeGst + gstAmount;
+
+    const billHTML = `<!DOCTYPE html><html><head><title>Invoice - ${order.orderId}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:40px;color:#333;background:#fff}.invoice-container{max-width:800px;margin:0 auto}.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;border-bottom:3px solid #2563eb;padding-bottom:20px}.header-left{display:flex;align-items:center;gap:20px;text-align:left}.company-info{text-align:left}.company-logo{height:60px;width:auto;object-fit:contain;border-radius:8px}.company-name{font-size:32px;font-weight:700;color:#2563eb;margin-bottom:5px}.invoice-title{font-size:28px;font-weight:700;color:#666;letter-spacing:1px}.section{margin:25px 0}.section-title{font-size:16px;font-weight:700;color:#2563eb;margin-bottom:10px;border-bottom:2px solid #e5e7eb;padding-bottom:5px}.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}.info-label{font-size:12px;color:#666;margin-bottom:3px}.info-value{font-size:14px;font-weight:500}.badge{display:inline-block;padding:4px 12px;border-radius:12px;font-size:12px;font-weight:500;margin-top:5px}.badge-new{background:#dbeafe;color:#1e40af}table{width:100%;border-collapse:collapse;margin-top:15px}th{background:#f3f4f6;padding:12px;text-align:left;font-size:13px;font-weight:600;border-bottom:2px solid #2563eb}td{padding:12px;border-bottom:1px solid #e5e7eb;font-size:13px}.item-name{font-weight:500}.item-details{font-size:11px;color:#666;margin-top:2px}.text-right{text-align:right}.pricing-summary{margin-top:30px;background:#f9fafb;padding:20px;border-radius:8px}.pricing-row{display:flex;justify-content:space-between;padding:8px 0;font-size:14px}.pricing-row.discount{color:#16a34a}.pricing-row.total{font-size:18px;font-weight:700;border-top:2px solid #2563eb;margin-top:10px;padding-top:15px}.footer{margin-top:40px;text-align:center;color:#666;font-size:12px;padding-top:20px;border-top:1px solid #e5e7eb}@media print{body{padding:20px}.no-print{display:none}}</style></head><body><div class="invoice-container"><div class="header"><div class="header-left"><img src="${window.location.origin}/logo.png" alt="Smart Cleaners" class="company-logo"><div class="company-info"><div class="company-name">Smart Cleaners</div><div style="font-size:14px;color:#666;margin-top:5px">Smart Cleaners: Bapu Nagar, Chintal, Hyderabad – 500054<br>Phone: +91 90146 32639 | Email:smartcleaner.shop@gmail.com</div></div></div><div class="invoice-title">INVOICE</div></div><div class="section"><div class="info-grid"><div class="info-block"><div class="info-label">Invoice Number:</div><div class="info-value">${order.orderId}</div></div><div class="info-block"><div class="info-label">Invoice Date:</div><div class="info-value">${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : 'N/A'}</div></div><div class="info-block"><div class="info-label">Payment Method:</div><div class="info-value">${order.paymentMethod.replace('_', ' ').toUpperCase()}</div></div><div class="info-block"><div class="info-label">Order Status:</div><div class="info-value">${order.status.toUpperCase()}</div></div></div></div><div class="section"><div class="section-title">Bill To</div><div class="info-value">${order.customer?.name}</div><div style="font-size:13px;color:#666;margin-top:5px">Phone: ${order.customer?.phone}<br>${order.customer?.address?.fullAddress}</div>${order.flags?.isNewCustomer ? '<div class="badge badge-new">New Customer</div>' : ''}</div><div class="section"><div class="section-title">Order Items</div><table><thead><tr><th>Item</th><th>SKU</th><th class="text-right">Qty</th><th class="text-right">Unit Price</th><th class="text-right">Discount</th><th class="text-right">Total</th></tr></thead><tbody>${order.items?.map(item => `<tr><td><div class="item-name">${item.productDetails?.name}</div><div class="item-details">${item.productDetails?.dimensions} | ${item.productDetails?.weight}</div></td><td>${item.productDetails?.sku}</td><td class="text-right">${item.quantity}</td><td class="text-right">₹${item.unitPrice.toLocaleString()}</td><td class="text-right">${item.bulkDiscountPerUnit > 0 ? `₹${item.bulkDiscountPerUnit.toLocaleString()}` : '-'}</td><td class="text-right">₹${item.lineTotal?.toLocaleString()}</td></tr>`).join('')}</tbody></table></div><div class="pricing-summary"><div class="pricing-row"><span>Subtotal (${order.pricing?.itemCount} items):</span><span>₹${order.pricing?.subtotal?.toLocaleString()}</span></div>${order.pricing?.bulkDiscountTotal > 0 ? `<div class="pricing-row discount"><span>Bulk Discount:</span><span>-₹${order.pricing.bulkDiscountTotal.toLocaleString()}</span></div>` : ''}<div class="pricing-row"><span>Shipping Cost:</span><span>₹${order.pricing?.shippingCost?.toLocaleString() || '0'}</span></div>${gstPercentage > 0 ? `<div class="pricing-row"><span>GST (${gstPercentage}%):</span><span>₹${gstAmount.toLocaleString('en-IN', {maximumFractionDigits: 2})}</span></div>` : ''}<div class="pricing-row total"><span>Total Amount:</span><span>₹${finalTotalWithGst.toLocaleString('en-IN', {maximumFractionDigits: 2})}</span></div></div>${order.trackingNumber ? `<div class="section"><div class="section-title">Shipping Information</div><div class="info-label">Tracking Number:</div><div class="info-value">${order.trackingNumber}</div></div>` : ''}<div class="footer"><p><strong>Thank you for your business!</strong></p><p style="margin-top:10px">For any queries, contact us at smartcleaners.shop@gmail.com or +91 9014632639</p></div><div class="no-print" style="margin-top:30px;text-align:center"><button onclick="window.print()" style="padding:12px 24px;background:#2563eb;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer;margin-right:10px">Print Invoice</button><button onclick="window.close()" style="padding:12px 24px;background:#6b7280;color:#fff;border:none;border-radius:6px;font-size:14px;cursor:pointer">Close</button></div></div></body></html>`;
 
     printWindow.document.write(billHTML);
     printWindow.document.close();
@@ -305,8 +315,8 @@ export const Orders: React.FC = () => {
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = order.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customer?.phone.includes(searchTerm);
+      order.customer?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.customer?.phone.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -483,7 +493,7 @@ export const Orders: React.FC = () => {
                       <Button size="sm" variant="outline" onClick={() => { setSelectedOrder(order); setIsDetailsOpen(true); }} title="View Details">
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => generateBillPDF(order)} title="Generate PDF Bill">
+                      <Button size="sm" variant="outline" onClick={() => setGstDialog({ isOpen: true, order, isGstEnabled: false, gstPercentage: '18' })} title="Generate PDF Bill">
                         <FileText className="h-4 w-4 text-blue-600" />
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => deleteSingleOrder(order.id)} title="Delete Order">
@@ -545,8 +555,8 @@ export const Orders: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <Button 
-                onClick={handleAcceptOrder} 
+              <Button
+                onClick={handleAcceptOrder}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-6 text-lg"
               >
                 Accept Order
@@ -569,6 +579,50 @@ export const Orders: React.FC = () => {
                 {isDeleting ? 'Deleting...' : 'Delete Orders'}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={gstDialog.isOpen} onOpenChange={(isOpen) => setGstDialog(prev => ({ ...prev, isOpen }))}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Generate Invoice</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="gst-enable" 
+                checked={gstDialog.isGstEnabled}
+                onCheckedChange={(checked) => setGstDialog(prev => ({ ...prev, isGstEnabled: checked as boolean }))}
+              />
+              <label htmlFor="gst-enable" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Apply GST to this invoice
+              </label>
+            </div>
+            {gstDialog.isGstEnabled && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium">GST Percentage (%)</label>
+                <Input 
+                  type="number" 
+                  value={gstDialog.gstPercentage} 
+                  onChange={(e) => setGstDialog(prev => ({ ...prev, gstPercentage: e.target.value }))}
+                  placeholder="e.g. 18"
+                  min="0"
+                  max="100"
+                />
+              </div>
+            )}
+            <Button 
+              onClick={() => {
+                if (gstDialog.order) {
+                  generateBillPDF(gstDialog.order, gstDialog.isGstEnabled ? parseFloat(gstDialog.gstPercentage) || 0 : 0);
+                  setGstDialog(prev => ({ ...prev, isOpen: false }));
+                }
+              }} 
+              className="w-full"
+            >
+              Generate PDF
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -694,7 +748,7 @@ export const Orders: React.FC = () => {
                       ))}
                     </TableBody>
                   </Table>
-                  
+
                   <div className="mt-6 p-4 bg-gray-50 rounded-lg">
                     <h4 className="font-medium mb-3">Pricing Breakdown</h4>
                     <div className="space-y-2 text-sm">
@@ -721,8 +775,8 @@ export const Orders: React.FC = () => {
                 </CardContent>
               </Card>
 
-            
-             
+
+
             </div>
           )}
         </DialogContent>
