@@ -98,28 +98,25 @@ export const OutletPOS: React.FC = () => {
     return matchesSearch && matchesCategory;
   });
 
-  const addToCart = (product: Product) => {
+  const toggleCartItem = (product: Product) => {
     setCart(prev => {
       const existing = prev.find(item => item.id === product.id);
       if (existing) {
-        return prev.map(item => 
-          item.id === product.id 
-            ? { ...item, cartQuantity: item.cartQuantity + 1 } 
-            : item
-        );
+        return prev.filter(item => item.id !== product.id);
       }
       return [...prev, { ...product, cartQuantity: 1 }];
     });
   };
 
   const updateQuantity = (id: string, delta: number) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === id) {
-        const newQ = item.cartQuantity + delta;
-        return { ...item, cartQuantity: Math.max(1, newQ) };
-      }
-      return item;
-    }));
+    setCart(prev => {
+      return prev.map(item => {
+        if (item.id === id) {
+          return { ...item, cartQuantity: item.cartQuantity + delta };
+        }
+        return item;
+      }).filter(item => item.cartQuantity > 0);
+    });
   };
 
   const removeFromCart = (id: string) => {
@@ -257,10 +254,10 @@ export const OutletPOS: React.FC = () => {
   }
 
   return (
-    <div className="flex flex-col md:flex-row gap-6 h-[calc(100vh-6rem)]">
+    <div className="flex flex-col md:flex-row gap-6 min-h-[calc(100vh-6rem)]">
       
       {/* Left: Products Catalog */}
-      <div className="flex-1 flex flex-col space-y-4 overflow-hidden">
+      <div className="flex-1 flex flex-col space-y-4">
         <div className="flex items-center gap-3 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
           <Store className="h-6 w-6 text-blue-600" />
           <h1 className="text-2xl font-bold">Outlet POS</h1>
@@ -289,13 +286,19 @@ export const OutletPOS: React.FC = () => {
           </Select>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-2 pb-4">
+        <div className="flex-1 pr-2 pb-4">
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredProducts.map(product => (
+            {filteredProducts.map(product => {
+              const isInCart = cart.some(item => item.id === product.id);
+              return (
               <Card 
                 key={product.id} 
-                className="cursor-pointer hover:shadow-md transition-shadow hover:border-blue-300 overflow-hidden flex flex-col"
-                onClick={() => addToCart(product)}
+                className={`cursor-pointer hover:shadow-md transition-shadow overflow-hidden flex flex-col ${
+                  isInCart 
+                    ? 'border-2 border-blue-600 shadow-sm ring-1 ring-blue-600' 
+                    : 'hover:border-blue-300'
+                }`}
+                onClick={() => toggleCartItem(product)}
               >
                 <div className="h-32 bg-gray-100 relative">
                   {product.images?.[0] ? (
@@ -312,12 +315,34 @@ export const OutletPOS: React.FC = () => {
                     <h3 className="font-semibold text-sm line-clamp-2" title={product.name}>{product.name}</h3>
                     <p className="text-xs text-muted-foreground">{product.sku}</p>
                   </div>
-                  <div className="mt-2 font-bold text-blue-700">
-                    ₹{getEffectivePrice(product).toLocaleString()}
+                  <div className="mt-2 font-bold text-blue-700 flex justify-between items-center min-h-[28px]">
+                    <span>₹{getEffectivePrice(product).toLocaleString()}</span>
+                    {isInCart && (
+                      <div 
+                        className="flex items-center gap-1 bg-blue-50 border border-blue-200 rounded p-0.5" 
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <button 
+                          className="p-1 hover:bg-blue-100 rounded text-blue-700 transition-colors" 
+                          onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, -1); }}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="text-xs font-semibold text-blue-800 w-4 text-center">
+                          {cart.find(i => i.id === product.id)?.cartQuantity}
+                        </span>
+                        <button 
+                          className="p-1 hover:bg-blue-100 rounded text-blue-700 transition-colors" 
+                          onClick={(e) => { e.stopPropagation(); updateQuantity(product.id, 1); }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </Card>
-            ))}
+            )})}
           </div>
           {filteredProducts.length === 0 && (
             <div className="text-center py-20 text-muted-foreground">
@@ -328,7 +353,7 @@ export const OutletPOS: React.FC = () => {
       </div>
 
       {/* Right: Cart and Checkout */}
-      <div className="w-full md:w-[400px] flex flex-col bg-white rounded-lg shadow-sm border border-gray-100 overflow-hidden">
+      <div className="w-full md:w-[400px] flex flex-col bg-white rounded-lg shadow-sm border border-gray-100">
         <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
@@ -339,7 +364,7 @@ export const OutletPOS: React.FC = () => {
           </Badge>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="p-4 space-y-3">
           {successOrder && cart.length === 0 && (
             <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-center mb-4">
               <CheckCircle2 className="h-10 w-10 text-green-500 mx-auto mb-2" />
@@ -358,9 +383,16 @@ export const OutletPOS: React.FC = () => {
 
           {cart.map(item => (
             <div key={item.id} className="flex items-center gap-3 border-b pb-3">
+              <div className="h-10 w-10 rounded-full bg-gray-100 flex-shrink-0 overflow-hidden border border-gray-200">
+                {item.images?.[0] ? (
+                  <img src={item.images[0]} alt={item.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[10px] text-gray-400">N/A</div>
+                )}
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm truncate">{item.name}</p>
-                <p className="text-xs text-muted-foreground">₹{getEffectivePrice(item).toLocaleString()} each</p>
+                <p className="font-bold text-sm truncate text-gray-900">{item.name}</p>
+                <p className="font-semibold text-xs text-gray-700">₹{getEffectivePrice(item).toLocaleString()} each</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex items-center border rounded-md">
@@ -368,7 +400,7 @@ export const OutletPOS: React.FC = () => {
                   <span className="px-2 text-sm font-medium w-8 text-center">{item.cartQuantity}</span>
                   <button className="px-2 py-1 hover:bg-gray-100" onClick={() => updateQuantity(item.id, 1)}><Plus className="h-3 w-3" /></button>
                 </div>
-                <div className="font-bold text-sm w-16 text-right">
+                <div className="font-bold text-sm w-16 text-right text-gray-900">
                   ₹{(getEffectivePrice(item) * item.cartQuantity).toLocaleString()}
                 </div>
                 <button className="text-red-400 hover:text-red-600 p-1" onClick={() => removeFromCart(item.id)}>
