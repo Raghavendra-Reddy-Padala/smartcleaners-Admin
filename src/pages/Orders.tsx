@@ -295,197 +295,225 @@ export const Orders: React.FC = () => {
     const gstAmount = gstPercentage > 0 ? (finalTotalBeforeGst * gstPercentage) / 100 : 0;
     const finalTotalWithGst = finalTotalBeforeGst + gstAmount;
 
+    const numberToWords = (num: number) => {
+      const a = ['', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ', 'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '];
+      const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+      const n = Math.floor(num);
+      if (n === 0) return 'Zero';
+      const format = (val: number): string => {
+        if (val < 20) return a[val];
+        if (val < 100) return b[Math.floor(val / 10)] + (val % 10 !== 0 ? ' ' + a[val % 10] : '');
+        if (val < 1000) return a[Math.floor(val / 100)] + 'Hundred ' + (val % 100 !== 0 ? format(val % 100) : '');
+        if (val < 100000) return format(Math.floor(val / 1000)) + 'Thousand ' + (val % 1000 !== 0 ? format(val % 1000) : '');
+        if (val < 10000000) return format(Math.floor(val / 100000)) + 'Lakh ' + (val % 100000 !== 0 ? format(val % 100000) : '');
+        return format(Math.floor(val / 10000000)) + 'Crore ' + (val % 10000000 !== 0 ? format(val % 10000000) : '');
+      };
+      return format(n).trim();
+    };
+
     const billHTML = `<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <title>Invoice - ${order.orderId}</title>
 <style>
-  @page { margin: 20mm; }
+  @page { margin: 10mm; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    color: #222;
+    font-family: Arial, sans-serif;
+    color: #000;
     background: #fff;
-    padding: 40px;
+    padding: 20px;
     font-size: 13px;
-    line-height: 1.5;
+    font-weight: 400;
+    line-height: 1.2;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
-  .inv { max-width: 780px; margin: 0 auto; }
-
-  /* ── HEADER ── */
-  .hdr { display: flex; justify-content: space-between; align-items: center; padding-bottom: 20px; border-bottom: 2px solid #2563eb; margin-bottom: 24px; }
-  .hdr-left { display: flex; align-items: center; gap: 14px; }
-  .hdr-logo { height: 56px; width: auto; object-fit: contain; }
-  .hdr-co { font-size: 22px; font-weight: 700; color: #2563eb; }
-  .hdr-addr { font-size: 11px; color: #555; margin-top: 4px; line-height: 1.5; }
-  .hdr-right { text-align: right; }
-  .hdr-inv { font-size: 28px; font-weight: 800; color: #2563eb; letter-spacing: 2px; }
-  .hdr-id { font-size: 12px; color: #555; margin-top: 4px; }
-
-  /* ── INFO ROW ── */
-  .info-row { display: flex; gap: 20px; margin-bottom: 22px; }
-  .info-box { flex: 1; border: 1px solid #ddd; border-radius: 6px; padding: 14px 16px; }
-  .info-box h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #2563eb; font-weight: 700; margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 6px; }
-  .info-line { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; }
-  .info-line .lbl { color: #777; }
-  .info-line .val { font-weight: 600; color: #222; }
-
-  /* ── BILL TO ── */
-  .bill-to { border: 1px solid #ddd; border-left: 3px solid #2563eb; border-radius: 6px; padding: 14px 16px; margin-bottom: 22px; }
-  .bill-to h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #2563eb; font-weight: 700; margin-bottom: 8px; }
-  .bill-to .name { font-size: 15px; font-weight: 700; color: #1a1a1a; }
-  .bill-to .addr { font-size: 12px; color: #555; margin-top: 4px; line-height: 1.6; }
-  .new-badge { display: inline-block; margin-top: 6px; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; border: 1px solid #2563eb; color: #2563eb; }
-
-  /* ── TABLE ── */
-  table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
-  thead th {
-    background: transparent;
-    border-top: 2px solid #2563eb;
-    border-bottom: 2px solid #2563eb;
-    padding: 10px 12px;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #111;
-    text-align: left;
-  }
-  thead th.r { text-align: right; }
-  tbody td {
-    padding: 10px 12px;
-    font-size: 12px;
-    color: #333;
-    border-bottom: 1px solid #eee;
-    vertical-align: top;
-  }
-  tbody td.r { text-align: right; font-variant-numeric: tabular-nums; }
-  tbody tr:last-child td { border-bottom: 2px solid #2563eb; }
-  .td-name { font-weight: 600; color: #111; }
-  .td-sub { font-size: 10px; color: #999; margin-top: 1px; }
-
-  /* ── TOTALS ── */
-  .totals-wrap { display: flex; justify-content: flex-end; margin-top: 16px; margin-bottom: 24px; }
-  .totals { width: 320px; }
-  .tot-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 12px; color: #444; }
-  .tot-row + .tot-row { border-top: 1px solid #f0f0f0; }
-  .tot-row.disc { color: #16a34a; }
-  .tot-row.gst-row { color: #7c3aed; }
-  .tot-grand {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 8px;
-    padding: 12px 14px;
-    border: 2px solid #2563eb;
-    border-radius: 6px;
-    background: transparent;
-  }
-  .tot-grand .tot-lbl { font-size: 13px; font-weight: 700; color: #111; }
-  .tot-grand .tot-val { font-size: 20px; font-weight: 800; color: #111; }
-
-  /* ── TRACKING ── */
-  .track { border: 1px solid #ddd; border-radius: 6px; padding: 12px 16px; margin-bottom: 24px; }
-  .track h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #16a34a; font-weight: 700; margin-bottom: 4px; }
-  .track .num { font-size: 14px; font-weight: 700; color: #166534; letter-spacing: 1px; }
-
-  /* ── FOOTER ── */
-  .ftr { text-align: center; padding-top: 16px; border-top: 1px solid #ddd; color: #888; font-size: 11px; }
-  .ftr strong { color: #2563eb; }
-
-  /* ── ACTIONS ── */
+  .inv-wrapper { max-width: 800px; margin: 0 auto; border: 1px solid #7a7a7a; }
+  .text-right { text-align: right; }
+  .text-center { text-align: center; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #7a7a7a; padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { text-align: center; font-weight: bold; background: #e6f0ff; }
+  .no-top-border th { border-top: none; }
   .actions { text-align: center; margin-top: 24px; }
-  .actions button { padding: 10px 24px; border: none; border-radius: 5px; font-size: 13px; font-weight: 600; cursor: pointer; margin: 0 6px; }
-  .btn-p { background: #2563eb; color: #fff; }
-  .btn-c { background: #e5e7eb; color: #333; }
+  .actions button { padding: 8px 20px; cursor: pointer; margin: 0 4px; border: 1px solid #ccc; background: #eee; }
   @media print { .actions { display: none; } body { padding: 0; } }
 </style>
 </head>
 <body>
-<div class="inv">
+<div class="inv-wrapper">
+  <div style="display:flex; justify-content:space-between; padding: 4px 8px; border-bottom: 1px solid #7a7a7a;">
+    <div style="flex:1"></div>
+    <div style="flex:1; text-align:center;">Tax Invoice</div>
+    <div style="flex:1; text-align:right;">Original / Duplicate Bill</div>
+  </div>
+  
+  <div style="display:flex; border-bottom: 1px solid #7a7a7a;">
+    <div style="padding: 10px; border-right: 1px solid #7a7a7a; width: 130px; display:flex; align-items:center; justify-content:center;">
+       <img src="${window.location.origin}/logo.png" style="max-width:100%; max-height:70px;" />
+    </div>
+    <div style="padding: 10px; flex:1;">
+      <div style="font-size: 10px;">GSTIN : 36HNUPP7482R1ZC</div>
+      <div style="font-size: 18px; font-weight: bold; margin: 4px 0;">SMART CLEANERS</div>
+      <div>Bapu Nagar, Chintal, Hyderabad - 500054</div>
+      <div>Contact No. : +91 9014632639 | smartcleaner.shop@gmail.com</div>
+    </div>
+  </div>
 
-  <div class="hdr">
-    <div class="hdr-left">
-      <img src="${window.location.origin}/logo.png" alt="Logo" class="hdr-logo">
-      <div>
-        <div class="hdr-co">Smart Cleaners</div>
-        <div class="hdr-addr">Bapu Nagar, Chintal, Hyderabad - 500054<br>+91 90146 32639 | smartcleaner.shop@gmail.com</div>
+  <div style="display:flex; border-bottom: 1px solid #7a7a7a;">
+    <div style="flex:1; border-right: 1px solid #7a7a7a;">
+      <div style="background:#e6f0ff; padding:2px 6px; border-bottom:1px solid #7a7a7a;">Bill To</div>
+      <div style="padding: 6px;">
+         <table style="width:100%; border:none;">
+           <tr><td style="width:60px; border:none; padding:1px 0;">Name :</td><td style="border:none; padding:1px 0; font-weight:bold;">${order.customer?.name || ''}</td></tr>
+           <tr><td style="border:none; padding:1px 0;">Address :</td><td style="border:none; padding:1px 0;">${order.customer?.address?.fullAddress || ''}</td></tr>
+           <tr><td style="border:none; padding:1px 0;">State :</td><td style="border:none; padding:1px 0;">${order.customer?.address?.state || ''} - ${order.customer?.address?.pincode || ''}</td></tr>
+         </table>
+      </div>
+      <div style="background:#e6f0ff; padding:2px 6px; border-top:1px solid #7a7a7a; border-bottom:1px solid #7a7a7a;">Shipped To</div>
+      <div style="padding: 6px;">
+         <table style="width:100%; border:none;">
+           <tr><td style="width:60px; border:none; padding:1px 0;">Name :</td><td style="border:none; padding:1px 0; font-weight:bold;">${order.customer?.name || ''}</td></tr>
+           <tr><td style="border:none; padding:1px 0;">Address :</td><td style="border:none; padding:1px 0;">${order.customer?.address?.fullAddress || ''}</td></tr>
+           <tr><td style="border:none; padding:1px 0;">State :</td><td style="border:none; padding:1px 0;">${order.customer?.address?.state || ''} - ${order.customer?.address?.pincode || ''}</td></tr>
+         </table>
       </div>
     </div>
-    <div class="hdr-right">
-      <div class="hdr-inv">INVOICE</div>
-      <div class="hdr-id">${order.orderId}</div>
+    <div style="width:320px;">
+      <div style="display:flex; padding:6px; border-bottom:1px solid #7a7a7a;">
+         <table style="width:100%; border:none;">
+           <tr><td style="width:110px; border:none; padding:1px 0;"># Inv. No. :</td><td style="border:none; padding:1px 0;">${order.orderId}</td></tr>
+           <tr><td style="border:none; padding:1px 0;">Inv. Date :</td><td style="border:none; padding:1px 0;">${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : ''}</td></tr>
+           <tr><td style="border:none; padding:1px 0;">Payment Mode :</td><td style="border:none; padding:1px 0;">${order.paymentMethod?.replace('_', ' ')?.toUpperCase() || ''}</td></tr>
+           <tr><td style="border:none; padding:1px 0;">Reverse Charge :</td><td style="border:none; padding:1px 0;">NO</td></tr>
+         </table>
+      </div>
+      <div style="padding:6px;">
+         <table style="width:100%; border:none;">
+           <tr><td style="width:110px; border:none; padding:1px 0;">Buyer's Order No :</td><td style="border:none; padding:1px 0;"></td></tr>
+           <tr><td style="border:none; padding:1px 0;">Supplier's Ref. :</td><td style="border:none; padding:1px 0;"></td></tr>
+           <tr><td style="border:none; padding:1px 0;">Vehicle Number :</td><td style="border:none; padding:1px 0;"></td></tr>
+           <tr><td style="border:none; padding:1px 0;">Delivery Date :</td><td style="border:none; padding:1px 0;"></td></tr>
+           <tr><td style="border:none; padding:1px 0;">Transport Details:</td><td style="border:none; padding:1px 0;">${order.trackingNumber || ''}</td></tr>
+           <tr><td style="border:none; padding:1px 0;">Terms Of Delivery:</td><td style="border:none; padding:1px 0;"></td></tr>
+         </table>
+      </div>
     </div>
   </div>
 
-  <div class="info-row">
-    <div class="info-box">
-      <h4>Invoice Details</h4>
-      <div class="info-line"><span class="lbl">Date</span><span class="val">${order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A'}</span></div>
-      <div class="info-line"><span class="lbl">Status</span><span class="val">${order.status.charAt(0).toUpperCase() + order.status.slice(1)}</span></div>
-      <div class="info-line"><span class="lbl">Payment</span><span class="val">${order.paymentMethod.replace('_', ' ').toUpperCase()}</span></div>
-      ${gstPercentage > 0 ? `<div class="info-line"><span class="lbl">GST</span><span class="val" style="color:#7c3aed">${gstPercentage}%</span></div>` : ''}
-    </div>
-    <div class="info-box">
-      <h4>Bill To</h4>
-      <div style="font-size:14px;font-weight:700;color:#111;margin-bottom:4px">${order.customer?.name}</div>
-      <div style="font-size:11px;color:#555;line-height:1.6">${order.customer?.phone}<br>${order.customer?.address?.fullAddress}</div>
-      ${order.flags?.isNewCustomer ? '<span class="new-badge">New Customer</span>' : ''}
-    </div>
-  </div>
-
-  <table>
+  <table style="border-left:none; border-right:none; border-top:none; min-height: 250px;">
     <thead>
+      <tr class="no-top-border">
+        <th rowspan="2" style="border-left:none;">Sr</th>
+        <th rowspan="2">SKU</th>
+        <th rowspan="2">Goods & Service Discription</th>
+        <th rowspan="2">Quantity</th>
+        <th rowspan="2">Rate</th>
+        <th rowspan="2">Taxable</th>
+        <th colspan="2">GST</th>
+        <th rowspan="2" style="border-right:none;">Total</th>
+      </tr>
       <tr>
-        <th>Item</th>
-        <th>SKU</th>
-        <th class="r">Qty</th>
-        <th class="r">Price</th>
-        <th class="r">Disc.</th>
-        <th class="r">Total</th>
+        <th style="background:#e6f0ff;">%</th>
+        <th style="background:#e6f0ff;">Amt.</th>
       </tr>
     </thead>
     <tbody>
-      ${order.items?.map(item => `<tr>
-        <td><div class="td-name">${item.productDetails?.name}</div><div class="td-sub">${item.productDetails?.dimensions || ''}${item.productDetails?.weight ? ' | ' + item.productDetails.weight : ''}</div></td>
-        <td>${item.productDetails?.sku || '-'}</td>
-        <td class="r">${item.quantity}</td>
-        <td class="r">\u20b9${item.unitPrice.toLocaleString('en-IN')}</td>
-        <td class="r">${item.bulkDiscountPerUnit > 0 ? '<span style="color:#16a34a">-\u20b9' + item.bulkDiscountPerUnit.toLocaleString('en-IN') + '</span>' : '-'}</td>
-        <td class="r" style="font-weight:600">\u20b9${item.lineTotal?.toLocaleString('en-IN')}</td>
-      </tr>`).join('')}
+      ${order.items?.map((item, index) => {
+      let rate = item.unitPrice || 0;
+      let taxable = rate * item.quantity;
+      let igstPercent = gstPercentage || 0;
+      let igstAmt = (taxable * igstPercent) / 100;
+      let total = taxable + igstAmt;
+      return `<tr>
+           <td class="text-center" style="border-left:none;">${index + 1}</td>
+           <td class="text-center">${item.productDetails?.sku || '-'}</td>
+           <td>${item.productDetails?.name || ''}</td>
+           <td class="text-center">${item.quantity}</td>
+           <td class="text-right">${rate.toFixed(2)}</td>
+           <td class="text-right">${taxable.toFixed(2)}</td>
+           <td class="text-center">${igstPercent > 0 ? igstPercent + '%' : ''}</td>
+           <td class="text-right">${igstAmt > 0 ? igstAmt.toFixed(2) : ''}</td>
+           <td class="text-right" style="border-right:none; background:#e6f0ff;">${total.toFixed(2)}</td>
+         </tr>`
+    }).join('')}
+      <tr>
+        <td colspan="3" class="text-right" style="border-left:none; border-bottom:none;">Sub-Total:</td>
+        <td class="text-center" style="border-bottom:none;">${order.items?.reduce((sum, i) => sum + i.quantity, 0)}</td>
+        <td style="border-bottom:none;"></td>
+        <td class="text-right" style="border-bottom:none;">${finalTotalBeforeGst.toFixed(2)}</td>
+        <td style="border-bottom:none;"></td>
+        <td class="text-right" style="border-bottom:none;">${gstAmount.toFixed(2)}</td>
+        <td class="text-right" style="border-right:none; border-bottom:none; background:#e6f0ff;">${(finalTotalBeforeGst + gstAmount).toFixed(2)}</td>
+      </tr>
     </tbody>
   </table>
 
-  <div class="totals-wrap">
-    <div class="totals">
-      <div class="tot-row"><span>Subtotal (${order.pricing?.itemCount} items)</span><span>\u20b9${order.pricing?.subtotal?.toLocaleString('en-IN')}</span></div>
-      ${order.pricing?.bulkDiscountTotal > 0 ? `<div class="tot-row disc"><span>Bulk Discount</span><span>-\u20b9${order.pricing.bulkDiscountTotal.toLocaleString('en-IN')}</span></div>` : ''}
-      <div class="tot-row"><span>Shipping</span><span>\u20b9${order.pricing?.shippingCost?.toLocaleString('en-IN') || '0'}</span></div>
-      ${gstPercentage > 0 ? `<div class="tot-row gst-row"><span>GST (${gstPercentage}%)</span><span>\u20b9${gstAmount.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span></div>` : ''}
-      <div class="tot-grand">
-        <span class="tot-lbl">Total Amount</span>
-        <span class="tot-val">\u20b9${finalTotalWithGst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</span>
-      </div>
+  <div style="display:flex; border-top: 1px solid #7a7a7a;">
+    <div style="flex:1; padding: 6px; border-right: 1px solid #7a7a7a;">
+      <div>Our Bank Details</div>
+      <table style="width:100%; border:none; margin-top:4px;">
+        <tr><td style="width:110px; border:none; padding:1px 0;">Firm name :</td><td style="border:none; padding:1px 0;">SMART CLEANERS</td></tr>
+        <tr><td style="border:none; padding:1px 0;">Branch name :</td><td style="border:none; padding:1px 0;">Rd no 14 Banjara hills</td></tr>
+        <tr><td style="border:none; padding:1px 0;">A/C :</td><td style="border:none; padding:1px 0;">50200113120115</td></tr>
+        <tr><td style="border:none; padding:1px 0;">IFC CODE :</td><td style="border:none; padding:1px 0;">HDFC0003860</td></tr>
+        <tr><td style="border:none; padding:1px 0;">COMPANY ID :</td><td style="border:none; padding:1px 0;">332565655</td></tr>
+        <tr><td style="border:none; padding:1px 0;">Net banking id :</td><td style="border:none; padding:1px 0;">360038814</td></tr>
+      </table>
+    </div>
+    <div style="width:320px;">
+      <table style="width:100%; border:none;">
+        <tr style="background:#e6f0ff;"><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; padding:2px 6px;">SUMMERY</td><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; border-left:1px solid #7a7a7a; padding:2px 6px; width:120px;">AMOUNT</td></tr>
+        <tr><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; padding:2px 6px;">CGST Amt :</td><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; border-left:1px solid #7a7a7a; padding:2px 6px;">${(gstAmount / 2).toFixed(2)}</td></tr>
+        <tr><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; padding:2px 6px;">SGST Amt :</td><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; border-left:1px solid #7a7a7a; padding:2px 6px;">${(gstAmount / 2).toFixed(2)}</td></tr>
+        <tr><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; padding:2px 6px;">IGST Amt :</td><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; border-left:1px solid #7a7a7a; padding:2px 6px;"></td></tr>
+        <tr><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; padding:2px 6px;">Freight Packing Charges :</td><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; border-left:1px solid #7a7a7a; padding:2px 6px;">${(order.pricing?.shippingCost || 0).toFixed(2)}</td></tr>
+        <tr><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; padding:2px 6px;">Round off :</td><td class="text-right" style="border:none; border-bottom:1px solid #7a7a7a; border-left:1px solid #7a7a7a; padding:2px 6px;">0.00</td></tr>
+        <tr style="background:#e6f0ff;"><td class="text-right" style="border:none; padding:2px 6px;">Total Amount :</td><td class="text-right" style="border:none; border-left:1px solid #7a7a7a; padding:2px 6px;">${finalTotalWithGst.toFixed(2)}</td></tr>
+      </table>
     </div>
   </div>
 
-  ${order.trackingNumber ? `<div class="track"><h4>Shipping</h4><div class="num">${order.trackingNumber}</div></div>` : ''}
-
-  <div class="ftr">
-    <p><strong>Thank you for your business!</strong></p>
-    <p style="margin-top:4px">Questions? smartcleaners.shop@gmail.com | +91 9014632639</p>
+  <div style="padding:6px; border-top:1px solid #7a7a7a; background:#e6f0ff;">
+    <div>Invoice Total in Word</div>
+    <div style="font-weight:bold; margin-top:2px;">Rupees ${numberToWords(finalTotalWithGst)} Only</div>
   </div>
 
-  <div class="actions">
-    <button class="btn-p" onclick="window.print()">Print / Save PDF</button>
-    <button class="btn-c" onclick="window.close()">Close</button>
+  <div style="padding:6px; border-top:1px solid #7a7a7a; display:flex;">
+    <div style="flex:1;">
+      <div style="margin-bottom:2px;">Declaration</div>
+      <div>1. Subject to Hyderabad jurisdiction</div>
+      <div>2. Terms & conditions are subject to our trade policy</div>
+      <div>3. Our risk & responsibility ceases after the delivery of goods.</div>
+      <div style="margin-top:4px;">E. & O.E.</div>
+    </div>
+    <div style="flex:1; text-align:right; display:flex; flex-direction:column; justify-content:space-between;">
+      <div>For, SMART CLEANERS</div>
+      <div style="margin-top:30px;">Authorised Signatory</div>
+    </div>
   </div>
 
 </div>
+<div style="text-align:center; margin-top:6px; font-size:11px;">Thank You For Business With US!</div>
+
+<div class="actions">
+  <button onclick="printFit()" style="background:#2563eb; color:#fff; border:none; border-radius:4px;">Print Invoice</button>
+  <button onclick="window.close()" style="border-radius:4px;">Close</button>
+</div>
+<script>
+  function printFit() {
+    const wrap = document.querySelector('.inv-wrapper');
+    const idealHeight = 980;
+    if (wrap && wrap.offsetHeight > idealHeight) {
+      const ratio = idealHeight / wrap.offsetHeight;
+      document.body.style.zoom = ratio;
+    }
+    window.print();
+    setTimeout(() => { document.body.style.zoom = 1; }, 500);
+  }
+</script>
 </body>
 </html>`;
 
