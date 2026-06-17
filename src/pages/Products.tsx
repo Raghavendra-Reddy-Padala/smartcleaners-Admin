@@ -34,6 +34,7 @@ interface Product {
   images: string[];
   price: number;
   salePrice?: number;
+  costPrice?: number;
   stock: number;
   sku: string;
   isActive: boolean;
@@ -63,6 +64,7 @@ export const Products: React.FC = () => {
     images: [] as string[],
     price: 0,
     salePrice: 0,
+    costPrice: 0,
     stock: 0,
     sku: '',
     weight: '',
@@ -169,6 +171,7 @@ export const Products: React.FC = () => {
         ...formData,
         price: Number(formData.price),
         salePrice: formData.salePrice ? Number(formData.salePrice) : null,
+        costPrice: formData.costPrice ? Number(formData.costPrice) : null,
         stock: Number(formData.stock),
         serialNo: formData.serialNo !== null && formData.serialNo !== 0 ? Number(formData.serialNo) : null,
         createdAt: new Date()
@@ -182,6 +185,7 @@ export const Products: React.FC = () => {
           images: formData.images,
           price: Number(formData.price),
           salePrice: formData.salePrice ? Number(formData.salePrice) : null,
+          costPrice: formData.costPrice ? Number(formData.costPrice) : null,
           stock: Number(formData.stock),
           sku: formData.sku,
           weight: formData.weight,
@@ -226,6 +230,7 @@ export const Products: React.FC = () => {
       images: product.images || [],
       price: product.price,
       salePrice: product.salePrice || 0,
+      costPrice: product.costPrice || 0,
       stock: product.stock,
       sku: product.sku,
       weight: product.weight || '',
@@ -264,6 +269,7 @@ export const Products: React.FC = () => {
       images: [],
       price: 0,
       salePrice: 0,
+      costPrice: 0,
       stock: 0,
       sku: '',
       weight: '',
@@ -375,7 +381,7 @@ export const Products: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-4 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="price">Price (₹)</Label>
                   <Input
@@ -385,6 +391,16 @@ export const Products: React.FC = () => {
                     onChange={(e) => setFormData(prev => ({ ...prev, price: Number(e.target.value) }))}
                     placeholder="0"
                     required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="costPrice">Cost Price (₹)</Label>
+                  <Input
+                    id="costPrice"
+                    type="number"
+                    value={formData.costPrice}
+                    onChange={(e) => setFormData(prev => ({ ...prev, costPrice: Number(e.target.value) }))}
+                    placeholder="0"
                   />
                 </div>
                 <div className="space-y-2">
@@ -567,6 +583,9 @@ export const Products: React.FC = () => {
                   <p className="font-semibold">₹{product.price}</p>
                   {product.salePrice && (
                     <p className="text-sm text-green-600">Sale: ₹{product.salePrice}</p>
+                  )}
+                  {product.costPrice && (
+                    <p className="text-xs text-muted-foreground">Cost: ₹{product.costPrice}</p>
                   )}
                 </div>
                 <Badge variant={product.stock > 0 ? "default" : "destructive"}>

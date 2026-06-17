@@ -18,6 +18,7 @@ interface Product {
   images: string[];
   price: number;
   salePrice?: number;
+  costPrice?: number;
   stock: number;
   sku: string;
   isActive: boolean;
@@ -175,6 +176,7 @@ export const OutletPOS: React.FC = () => {
         quantity: item.cartQuantity,
         unitPrice: item.price,
         finalUnitPrice: getEffectivePrice(item),
+        costPrice: item.costPrice || 0,
         lineTotal: getEffectivePrice(item) * item.cartQuantity,
         bulkDiscountPerUnit: 0,
         productDetails: {

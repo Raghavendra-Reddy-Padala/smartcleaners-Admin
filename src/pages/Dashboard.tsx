@@ -93,10 +93,16 @@ export const Dashboard: React.FC = () => {
           return sum + (order.pricing?.finalTotal || 0);
         }, 0);
 
-        // Calculate profit (revenue - cost estimation: 60% of subtotal as cost)
+        // Calculate profit (revenue - total actual cost)
         const totalProfit = orders.reduce((sum, order) => {
-          const cost = (order.pricing?.subtotal || 0) * 0.8; // Assuming 40% profit margin
-          return sum + ((order.pricing?.finalTotal || 0) - cost);
+          const revenue = order.pricing?.finalTotal || 0;
+          let totalCost = 0;
+          if (order.items && order.items.length > 0) {
+            totalCost = order.items.reduce((itemSum, item) => {
+              return itemSum + ((item.costPrice || 0) * item.quantity);
+            }, 0);
+          }
+          return sum + (revenue - totalCost);
         }, 0);
 
         // Average order value
@@ -171,8 +177,14 @@ export const Dashboard: React.FC = () => {
           );
 
           const profit = monthOrders.reduce((sum, order) => {
-            const cost = (order.pricing?.subtotal || 0) * 0.6;
-            return sum + ((order.pricing?.finalTotal || 0) - cost);
+            const revenue = order.pricing?.finalTotal || 0;
+            let totalCost = 0;
+            if (order.items && order.items.length > 0) {
+              totalCost = order.items.reduce((itemSum, item) => {
+                return itemSum + ((item.costPrice || 0) * item.quantity);
+              }, 0);
+            }
+            return sum + (revenue - totalCost);
           }, 0);
 
           return {

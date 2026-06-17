@@ -29,6 +29,7 @@ interface Product {
   id: string;
   name: string;
   price: number;
+  costPrice?: number;
   imageUrl?: string;
   isActive: boolean;
 }

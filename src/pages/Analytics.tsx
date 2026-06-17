@@ -22,6 +22,7 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   finalUnitPrice: number;
+  costPrice?: number;
   lineTotal: number;
   productDetails: {
     name: string;

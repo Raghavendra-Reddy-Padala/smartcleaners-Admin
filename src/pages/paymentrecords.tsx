@@ -27,6 +27,7 @@ interface OrderItem {
   quantity: number;
   unitPrice: number;
   finalUnitPrice: number;
+  costPrice?: number;
   lineTotal: number;
   bulkDiscountPerUnit?: number;
   productDetails?: {

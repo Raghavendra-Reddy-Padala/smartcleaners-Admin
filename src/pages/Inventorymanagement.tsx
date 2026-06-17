@@ -29,6 +29,7 @@ interface Product {
   images: string[];
   price: number;
   salePrice?: number;
+  costPrice?: number;
   stock: number;
   sku: string;
   isActive: boolean;
@@ -189,7 +190,7 @@ export const Inventory: React.FC = () => {
   });
 
   const exportToCSV = () => {
-    const headers = ['SKU', 'Product Name', 'Category', 'Stock', 'Price', 'Sale Price', 'Stock Value'];
+    const headers = ['SKU', 'Product Name', 'Category', 'Stock', 'Price', 'Sale Price', 'Cost Price', 'Stock Value'];
     const rows = filteredProducts.map(p => [
       p.sku,
       p.name,
@@ -197,6 +198,7 @@ export const Inventory: React.FC = () => {
       p.stock,
       p.price,
       p.salePrice || '-',
+      p.costPrice || '-',
       (p.salePrice || p.price) * p.stock
     ]);
 
